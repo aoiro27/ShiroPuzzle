@@ -210,10 +210,6 @@ struct PuzzleView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
-
-            if allPlaced {
-                completionView
-            }
         }
         .preference(key: TrayBoundsKey.self, value: layoutValid ? TrayBounds(top: trayTop, bottom: trayBottom) : nil)
         .preference(key: LayoutContextKey.self, value: layoutValid ? LayoutContext(rect: boardAreaRect, viewOffset: viewOffset, fillScale: fillScale, fullW: fullW, fullH: fullH, safeBottom: safe.bottom, trayHeight: trayH) : nil)
@@ -421,18 +417,6 @@ struct PuzzleView: View {
         var updated = pieces
         updated[idx].currentPosition = CGPoint(x: initialPiecePositions[id].x, y: clampedY)
         pieces = updated
-    }
-
-    private var completionView: some View {
-        VStack(spacing: 16) {
-            Image(systemName: "star.circle.fill")
-                .font(.system(size: 60))
-                .foregroundStyle(.yellow)
-            Text("できたね！")
-                .font(.largeTitle)
-                .fontWeight(.bold)
-        }
-        .padding(.vertical, 24)
     }
 
     private var celebrationOverlay: some View {
