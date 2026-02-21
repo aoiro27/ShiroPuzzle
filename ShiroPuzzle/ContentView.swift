@@ -44,9 +44,9 @@ struct ContentView: View {
         let orangeRed = Color(red: 1.0, green: 0.35, blue: 0.2)
         let coral = Color(red: 1.0, green: 0.45, blue: 0.3)
         let creamBg = Color(red: 1.0, green: 0.97, blue: 0.92)
-        return HStack(spacing: 12) {
+        return HStack(spacing: 16) {
             Image(systemName: "puzzle.piece.fill")
-                .font(.system(size: 44, weight: .medium))
+                .font(.system(size: 64, weight: .medium))
                 .foregroundStyle(
                     LinearGradient(
                         colors: [coral, orangeRed],
@@ -56,7 +56,7 @@ struct ContentView: View {
                 )
                 .shadow(color: .orange.opacity(0.35), radius: 1, x: 0, y: 2)
             Text("しきしろパズル")
-                .font(.system(size: 52, weight: .heavy, design: .rounded))
+                .font(.system(size: 72, weight: .heavy, design: .rounded))
                 .foregroundStyle(
                     LinearGradient(
                         colors: [coral, orangeRed],
@@ -67,15 +67,15 @@ struct ContentView: View {
                 .shadow(color: .orange.opacity(0.5), radius: 0, x: 2, y: 2)
                 .shadow(color: Color.white.opacity(0.9), radius: 0, x: -1, y: -1)
         }
-        .padding(.horizontal, 28)
-        .padding(.vertical, 18)
+        .padding(.horizontal, 36)
+        .padding(.vertical, 24)
         .background(
-            RoundedRectangle(cornerRadius: 24)
+            RoundedRectangle(cornerRadius: 28)
                 .fill(creamBg)
                 .shadow(color: .orange.opacity(0.15), radius: 8, x: 0, y: 4)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 24)
+            RoundedRectangle(cornerRadius: 28)
                 .strokeBorder(
                     LinearGradient(
                         colors: [
@@ -100,24 +100,23 @@ struct ContentView: View {
                 .ignoresSafeArea()
                 .clipped()
 
-            VStack(spacing: 32) {
+            VStack(spacing: 40) {
                 Spacer()
                 Image(systemName: "photo.stack.fill")
-                    .font(.system(size: 80))
+                    .font(.system(size: 100))
                     .foregroundStyle(.orange.gradient)
                 titleView
                 Spacer()
 
-                VStack(spacing: 16) {
+                VStack(spacing: 24) {
                     Button {
                         showPhotoPicker = true
                     } label: {
                         Label("しゃしんをえらぶ", systemImage: "photo.on.rectangle.angled")
-                            .font(.title2)
-                            .fontWeight(.semibold)
-                            .padding(.horizontal, 24)
-                            .padding(.vertical, 20)
-                            .background(Color.orange.gradient, in: RoundedRectangle(cornerRadius: 16))
+                            .font(.system(size: 28, weight: .semibold))
+                            .padding(.horizontal, 36)
+                            .padding(.vertical, 28)
+                            .background(Color.orange.gradient, in: RoundedRectangle(cornerRadius: 20))
                             .foregroundStyle(.white)
                     }
 
@@ -126,35 +125,32 @@ struct ContentView: View {
                             showCamera = true
                         } label: {
                             Label("カメラでとる", systemImage: "camera.fill")
-                                .font(.title2)
-                                .fontWeight(.semibold)
-                                .padding(.horizontal, 24)
-                                .padding(.vertical, 20)
-                                .background(Color.orange.opacity(0.85).gradient, in: RoundedRectangle(cornerRadius: 16))
+                                .font(.system(size: 28, weight: .semibold))
+                                .padding(.horizontal, 36)
+                                .padding(.vertical, 28)
+                                .background(Color.orange.opacity(0.85).gradient, in: RoundedRectangle(cornerRadius: 20))
                                 .foregroundStyle(.white)
                         }
                     }
 
                     // ピース数（選択がはっきりわかるように）
-                    VStack(alignment: .center, spacing: 8) {
+                    VStack(alignment: .center, spacing: 14) {
                         Text("ピースのかず")
-                            .font(.title2)
-                            .fontWeight(.semibold)
+                            .font(.system(size: 26, weight: .semibold))
                             .foregroundStyle(Color(red: 0.35, green: 0.3, blue: 0.28))
-                        HStack(spacing: 10) {
+                        HStack(spacing: 14) {
                             ForEach(PuzzlePieceCount.allCases, id: \.rawValue) { count in
                                 let isSelected = selectedPieceCountRaw == count.rawValue
                                 Button {
                                     selectedPieceCountRaw = count.rawValue
                                 } label: {
                                     Text("\(count.rawValue)こ")
-                                        .font(.title2)
-                                        .fontWeight(isSelected ? .bold : .regular)
+                                        .font(.system(size: 28, weight: isSelected ? .bold : .regular))
                                         .foregroundStyle(isSelected ? .white : Color(red: 0.35, green: 0.3, blue: 0.28))
-                                        .padding(.horizontal, 24)
-                                        .padding(.vertical, 16)
+                                        .padding(.horizontal, 32)
+                                        .padding(.vertical, 22)
                                         .background(
-                                            RoundedRectangle(cornerRadius: 14)
+                                            RoundedRectangle(cornerRadius: 18)
                                                 .fill(isSelected ? Color.orange : Color(white: 0.92))
                                         )
                                 }
