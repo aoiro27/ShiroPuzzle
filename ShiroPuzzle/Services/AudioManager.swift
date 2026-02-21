@@ -17,6 +17,8 @@ final class AudioManager {
     static let shared = AudioManager()
 
     private var bgmPlayer: AVAudioPlayer?
+    /// 効果音再生中は参照を保持（解放されると再生が止まるため）
+    private var sfxPlayer: AVAudioPlayer?
 
     private init() {
         configureAudioSession()
@@ -91,10 +93,14 @@ final class AudioManager {
             let player = try AVAudioPlayer(contentsOf: url)
             player.volume = 0.8
             player.prepareToPlay()
+            sfxPlayer = player
             player.play()
-            DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak player] in _ = player }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
+                self?.sfxPlayer = nil
+            }
             return true
         } catch {
+            sfxPlayer = nil
             return false
         }
     }
