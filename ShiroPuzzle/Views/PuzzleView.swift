@@ -287,7 +287,7 @@ struct PuzzleView: View {
         return VStack(spacing: 0) {
             Spacer(minLength: 0)
             Rectangle()
-                .fill(Color(.systemGray5))
+                .fill(Color(.systemGray5).opacity(0.75))
                 .frame(height: trayHeight + safeBottom)
                 .ignoresSafeArea(edges: .bottom)
         }
