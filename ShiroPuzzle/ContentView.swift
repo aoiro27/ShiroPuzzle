@@ -40,6 +40,56 @@ struct ContentView: View {
         }
     }
 
+    private var titleView: some View {
+        let orangeRed = Color(red: 1.0, green: 0.35, blue: 0.2)
+        let coral = Color(red: 1.0, green: 0.45, blue: 0.3)
+        let creamBg = Color(red: 1.0, green: 0.97, blue: 0.92)
+        return HStack(spacing: 12) {
+            Image(systemName: "puzzle.piece.fill")
+                .font(.system(size: 44, weight: .medium))
+                .foregroundStyle(
+                    LinearGradient(
+                        colors: [coral, orangeRed],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
+                .shadow(color: .orange.opacity(0.35), radius: 1, x: 0, y: 2)
+            Text("しきしろパズル")
+                .font(.system(size: 52, weight: .heavy, design: .rounded))
+                .foregroundStyle(
+                    LinearGradient(
+                        colors: [coral, orangeRed],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .shadow(color: .orange.opacity(0.5), radius: 0, x: 2, y: 2)
+                .shadow(color: Color.white.opacity(0.9), radius: 0, x: -1, y: -1)
+        }
+        .padding(.horizontal, 28)
+        .padding(.vertical, 18)
+        .background(
+            RoundedRectangle(cornerRadius: 24)
+                .fill(creamBg)
+                .shadow(color: .orange.opacity(0.15), radius: 8, x: 0, y: 4)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 24)
+                .strokeBorder(
+                    LinearGradient(
+                        colors: [
+                            Color.orange.opacity(0.4),
+                            Color.orange.opacity(0.15)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 2
+                )
+        )
+    }
+
     private var startView: some View {
         ZStack {
             Color(red: 1.0, green: 0.98, blue: 0.94)
@@ -55,21 +105,7 @@ struct ContentView: View {
                 Image(systemName: "photo.stack.fill")
                     .font(.system(size: 80))
                     .foregroundStyle(.orange.gradient)
-                Text("しろぱずる")
-                    .font(.system(size: 42, weight: .bold))
-                    .foregroundStyle(Color(red: 0.15, green: 0.12, blue: 0.1))
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 12)
-                    .background(
-                        RoundedRectangle(cornerRadius: 16)
-                            .fill(.ultraThinMaterial)
-                    )
-                Text("しゃしんをえらんで、かたちにあわせて\nピースをはめよう！")
-                    .font(.title2)
-                    .multilineTextAlignment(.center)
-                    .foregroundStyle(Color(red: 0.35, green: 0.3, blue: 0.28))
-                    .padding(.horizontal)
-
+                titleView
                 Spacer()
 
                 VStack(spacing: 16) {
@@ -102,8 +138,8 @@ struct ContentView: View {
                     // ピース数（選択がはっきりわかるように）
                     VStack(alignment: .center, spacing: 8) {
                         Text("ピースのかず")
-                            .font(.subheadline)
-                            .fontWeight(.medium)
+                            .font(.title2)
+                            .fontWeight(.semibold)
                             .foregroundStyle(Color(red: 0.35, green: 0.3, blue: 0.28))
                         HStack(spacing: 10) {
                             ForEach(PuzzlePieceCount.allCases, id: \.rawValue) { count in
@@ -112,13 +148,13 @@ struct ContentView: View {
                                     selectedPieceCountRaw = count.rawValue
                                 } label: {
                                     Text("\(count.rawValue)こ")
-                                        .font(.body)
+                                        .font(.title2)
                                         .fontWeight(isSelected ? .bold : .regular)
                                         .foregroundStyle(isSelected ? .white : Color(red: 0.35, green: 0.3, blue: 0.28))
-                                        .padding(.horizontal, 20)
-                                        .padding(.vertical, 12)
+                                        .padding(.horizontal, 24)
+                                        .padding(.vertical, 16)
                                         .background(
-                                            RoundedRectangle(cornerRadius: 10)
+                                            RoundedRectangle(cornerRadius: 14)
                                                 .fill(isSelected ? Color.orange : Color(white: 0.92))
                                         )
                                 }
