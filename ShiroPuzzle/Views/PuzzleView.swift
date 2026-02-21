@@ -105,7 +105,7 @@ struct PuzzleView: View {
                 Button {
                     onBackToStart()
                 } label: {
-                    Label("写真を選び直す", systemImage: "photo.on.rectangle.angled")
+                    Label("しゃしんをえらびなおす", systemImage: "photo.on.rectangle.angled")
                         .font(.headline)
                 }
                 .padding(.horizontal, 16)

@@ -42,31 +42,29 @@ struct ContentView: View {
 
     private var startView: some View {
         ZStack {
+            Color(red: 1.0, green: 0.98, blue: 0.94)
+                .ignoresSafeArea()
             Image("StartBackground")
                 .resizable()
                 .scaledToFill()
                 .ignoresSafeArea()
                 .clipped()
 
-            LinearGradient(
-                colors: [
-                    Color.white.opacity(0.5),
-                    Color.white.opacity(0.35)
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .ignoresSafeArea()
-
             VStack(spacing: 32) {
                 Spacer()
                 Image(systemName: "photo.stack.fill")
                     .font(.system(size: 80))
                     .foregroundStyle(.orange.gradient)
-                Text("しろパズル")
+                Text("しろぱずる")
                     .font(.system(size: 42, weight: .bold))
                     .foregroundStyle(Color(red: 0.15, green: 0.12, blue: 0.1))
-                Text("写真を選んで、形に合わせて\nピースをはめよう！")
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 12)
+                    .background(
+                        RoundedRectangle(cornerRadius: 16)
+                            .fill(.ultraThinMaterial)
+                    )
+                Text("しゃしんをえらんで、かたちにあわせて\nピースをはめよう！")
                     .font(.title2)
                     .multilineTextAlignment(.center)
                     .foregroundStyle(Color(red: 0.35, green: 0.3, blue: 0.28))
@@ -78,34 +76,32 @@ struct ContentView: View {
                     Button {
                         showPhotoPicker = true
                     } label: {
-                        Label("写真を選ぶ", systemImage: "photo.on.rectangle.angled")
+                        Label("しゃしんをえらぶ", systemImage: "photo.on.rectangle.angled")
                             .font(.title2)
                             .fontWeight(.semibold)
-                            .frame(maxWidth: .infinity)
+                            .padding(.horizontal, 24)
                             .padding(.vertical, 20)
                             .background(Color.orange.gradient, in: RoundedRectangle(cornerRadius: 16))
                             .foregroundStyle(.white)
                     }
-                    .padding(.horizontal, 48)
 
                     if UIImagePickerController.isSourceTypeAvailable(.camera) {
                         Button {
                             showCamera = true
                         } label: {
-                            Label("カメラで撮る", systemImage: "camera.fill")
+                            Label("カメラでとる", systemImage: "camera.fill")
                                 .font(.title2)
                                 .fontWeight(.semibold)
-                                .frame(maxWidth: .infinity)
+                                .padding(.horizontal, 24)
                                 .padding(.vertical, 20)
                                 .background(Color.orange.opacity(0.85).gradient, in: RoundedRectangle(cornerRadius: 16))
                                 .foregroundStyle(.white)
                         }
-                        .padding(.horizontal, 48)
                     }
 
                     // ピース数（選択がはっきりわかるように）
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("ピースの数")
+                    VStack(alignment: .center, spacing: 8) {
+                        Text("ピースのかず")
                             .font(.subheadline)
                             .fontWeight(.medium)
                             .foregroundStyle(Color(red: 0.35, green: 0.3, blue: 0.28))
@@ -119,7 +115,7 @@ struct ContentView: View {
                                         .font(.body)
                                         .fontWeight(isSelected ? .bold : .regular)
                                         .foregroundStyle(isSelected ? .white : Color(red: 0.35, green: 0.3, blue: 0.28))
-                                        .frame(maxWidth: .infinity)
+                                        .padding(.horizontal, 20)
                                         .padding(.vertical, 12)
                                         .background(
                                             RoundedRectangle(cornerRadius: 10)
@@ -130,7 +126,6 @@ struct ContentView: View {
                             }
                         }
                     }
-                    .padding(.horizontal, 48)
                 }
                 .padding(.bottom, 60)
             }

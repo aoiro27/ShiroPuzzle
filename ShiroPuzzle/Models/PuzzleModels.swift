@@ -13,14 +13,12 @@ enum PuzzlePieceCount: Int, CaseIterable {
     case four = 4   // 2x2
     case six = 6    // 2x3
     case eight = 8  // 2x4
-    case nine = 9   // 3x3
 
     var columns: Int {
         switch self {
         case .four: return 2
         case .six: return 3
         case .eight: return 4
-        case .nine: return 3
         }
     }
 
