@@ -22,9 +22,70 @@ enum PuzzleGenerator {
         let n = pieceCount.rawValue
         let usable = rect.insetBy(dx: inset, dy: inset)
         guard usable.width > 0, usable.height > 0 else { return [] }
-        let baseSize = min(usable.width, usable.height) / CGFloat(max(2, Int(Double(n).squareRoot() + 1.5)))
+        let divisor = CGFloat(max(2, Int(Double(n).squareRoot() + 1.5)))
+        let baseDivisor = min(usable.width, usable.height) / divisor
+        let scaleByCount: CGFloat
+        switch n {
+        case 4: scaleByCount = 1.45
+        case 6: scaleByCount = 1.18
+        default: scaleByCount = 1.0
+        }
+        let baseSize = baseDivisor * scaleByCount
         let minSize = baseSize * 0.72
         let maxSize = baseSize * 1.42
+        var slots: [PuzzleSlot] = []
+
+        if n == 4 {
+            slots = makeSlotsGrid4(usable: usable, minSize: minSize, maxSize: maxSize)
+        } else {
+            slots = makeSlotsRandom(n: n, usable: usable, minSize: minSize, maxSize: maxSize)
+        }
+        return slots
+    }
+
+    /// 4枠用：2x2グリッドで重ならないように配置
+    private static func makeSlotsGrid4(usable: CGRect, minSize: CGFloat, maxSize: CGFloat) -> [PuzzleSlot] {
+        let cellW = usable.width / 2
+        let cellH = usable.height / 2
+        let gap: CGFloat = 12
+        let slotMaxW = min(maxSize, cellW - gap)
+        let slotMaxH = min(maxSize, cellH - gap)
+        let slotMinW = minSize
+        let slotMinH = minSize
+        var slots: [PuzzleSlot] = []
+        let positions: [(CGFloat, CGFloat)] = [
+            (usable.minX, usable.minY),
+            (usable.minX + cellW, usable.minY),
+            (usable.minX, usable.minY + cellH),
+            (usable.minX + cellW, usable.minY + cellH)
+        ]
+        for (cellMinX, cellMinY) in positions {
+            let kind = allShapeKinds.randomElement()!
+            let w: CGFloat
+            let h: CGFloat
+            switch kind {
+            case .circle:
+                let s = CGFloat.random(in: slotMinW...slotMaxW)
+                w = min(s, slotMaxH); h = min(s, slotMaxH)
+            case .ellipse:
+                w = CGFloat.random(in: slotMinW...slotMaxW)
+                h = CGFloat.random(in: slotMinH...slotMaxH)
+            default:
+                w = CGFloat.random(in: slotMinW...slotMaxW)
+                h = CGFloat.random(in: slotMinH...slotMaxH)
+            }
+            let maxX = max(gap/2, cellW - w - gap/2)
+            let maxY = max(gap/2, cellH - h - gap/2)
+            let x = cellMinX + CGFloat.random(in: gap/2...maxX)
+            let y = cellMinY + CGFloat.random(in: gap/2...maxY)
+            let frame = CGRect(x: x, y: y, width: w, height: h)
+            slots.append(PuzzleSlot(id: slots.count, index: slots.count, frame: frame, shapeKind: kind))
+        }
+        return slots
+    }
+
+    /// ランダム配置（6・8枠用）
+    private static func makeSlotsRandom(n: Int, usable: CGRect, minSize: CGFloat, maxSize: CGFloat) -> [PuzzleSlot] {
         var slots: [PuzzleSlot] = []
         var attempt = 0
         let maxAttempts = 500
@@ -54,7 +115,6 @@ enum PuzzleGenerator {
                 slots.append(PuzzleSlot(id: slots.count, index: slots.count, frame: frame, shapeKind: kind))
             }
         }
-        // 足りない分は試行回数を増やして重なりなしで配置
         var fallbackAttempt = 0
         let fallbackMaxAttempts = 400
         while slots.count < n, fallbackAttempt < fallbackMaxAttempts {
@@ -70,7 +130,6 @@ enum PuzzleGenerator {
                 slots.append(PuzzleSlot(id: slots.count, index: slots.count, frame: frame, shapeKind: kind))
             }
         }
-        // それでも足りない場合のみ重なりを許容して追加（無限ループ防止）
         while slots.count < n {
             let kind = allShapeKinds.randomElement()!
             let w = CGFloat.random(in: minSize...maxSize)
