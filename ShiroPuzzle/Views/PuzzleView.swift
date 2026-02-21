@@ -1,0 +1,432 @@
+//
+//  PuzzleView.swift
+//  ShiroPuzzle
+//
+//  形に合わせてはめるパズル画面（背景スロット + ドラッグでピースをはめる）
+//
+
+import SwiftUI
+
+private struct TrayBounds: Equatable {
+    var top: CGFloat
+    var bottom: CGFloat
+}
+
+private struct TrayBoundsKey: PreferenceKey {
+    static var defaultValue: TrayBounds? { nil }
+    static func reduce(value: inout TrayBounds?, nextValue: () -> TrayBounds?) {
+        if let next = nextValue() { value = next }
+    }
+}
+
+struct PuzzleView: View {
+    let image: UIImage
+    let pieceCount: PuzzlePieceCount
+    /// スタート画面に戻る（「写真を選び直す」で呼ぶ）
+    var onBackToStart: () -> Void = {}
+    @State private var slots: [PuzzleSlot] = []
+    @State private var pieces: [PuzzlePiece] = []
+    @State private var boardRect: CGRect = .zero
+    @State private var pieceSize: CGSize = .zero
+    @State private var allPlaced = false
+    @State private var showCelebration = false
+    /// もういちど用：ピースの初期位置（下部トレイ内に縮小して並んだ位置）
+    @State private var initialPiecePositions: [CGPoint] = []
+    /// トレイ内でのピース縮小率（枠内に収める、1.0=等倍）
+    @State private var trayPieceScale: CGFloat = 1.0
+    /// 向き正規化した画像（ボード表示とピース切り抜きで同一にする）
+    @State private var displayImage: UIImage?
+
+    private let slotInset: CGFloat = 12
+    private let snapThreshold: CGFloat = 50
+
+    /// レイアウトが有効になるまでの最小サイズ（0以下や未確定でフレーム計算をしない）
+    private let minBoardSize: CGFloat = 200
+
+    /// 上部ボタンエリアの高さ（写真を選び直す）
+    private let topBarHeight: CGFloat = 56
+    /// 下部ピース置き場の高さ（サフェリア下に収めつつピースが入るよう固定）
+    private let pieceTrayHeight: CGFloat = 200
+
+    var body: some View {
+        GeometryReader { geo in
+            puzzleContent(geo: geo)
+        }
+        .onPreferenceChange(TrayBoundsKey.self) { bounds in
+            guard let b = bounds else { return }
+            let trayTop = b.top
+            let trayBottom = b.bottom
+            var updated = pieces
+            var changed = false
+            for i in updated.indices where !updated[i].isPlaced {
+                let piece = updated[i]
+                let ph = slots.first(where: { $0.index == piece.slotIndex })?.frame.height ?? pieceSize.height
+                let halfH = (ph * trayPieceScale) / 2
+                let margin: CGFloat = 20
+                let trayMinY = trayTop + halfH + margin
+                let trayMaxY = trayBottom - halfH - margin
+                let clampedY = min(max(piece.currentPosition.y, trayMinY), trayMaxY)
+                if abs(piece.currentPosition.y - clampedY) > 0.5 {
+                    updated[i].currentPosition = CGPoint(x: piece.currentPosition.x, y: clampedY)
+                    changed = true
+                }
+            }
+            if changed { pieces = updated }
+        }
+        .safeAreaInset(edge: .top, spacing: 0) {
+            HStack {
+                Button {
+                    onBackToStart()
+                } label: {
+                    Label("写真を選び直す", systemImage: "photo.on.rectangle.angled")
+                        .font(.headline)
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+                Spacer()
+            }
+            .background(.ultraThinMaterial)
+        }
+        .navigationBarHidden(true)
+        .onChange(of: pieces.filter(\.isPlaced).count) { _, count in
+            allPlaced = count == pieceCount.rawValue
+            if allPlaced { showCelebration = true }
+        }
+        .overlay {
+            if showCelebration {
+                celebrationOverlay
+            }
+        }
+        .onAppear {
+            AudioManager.shared.playBGMGame()
+        }
+    }
+
+    private func puzzleContent(geo: GeometryProxy) -> some View {
+        let safe = geo.safeAreaInsets
+        let fullW = geo.size.width
+        let fullH = geo.size.height
+        let trayH = pieceTrayHeight
+        let boardTop: CGFloat = 8
+        let boardBottom = fullH - safe.bottom - trayH
+        let boardH = max(0, boardBottom - boardTop)
+        let w = fullW
+        let h = boardH
+        let imageSize = image.size
+        let maxBoardW = w
+        let maxBoardH = h
+        let scaleRaw = min(maxBoardW / max(imageSize.width, 0.1), maxBoardH / max(imageSize.height, 0.1))
+        let minScale = minBoardSize / min(max(imageSize.width, 0.1), max(imageSize.height, 0.1))
+        let scale = max(minScale, scaleRaw)
+        let boardW = imageSize.width * scale
+        let boardHeight = imageSize.height * scale
+        let layoutValid = w >= minBoardSize && h >= minBoardSize
+        let boardAreaRect = CGRect(
+            origin: CGPoint(x: fullW / 2 - boardW / 2, y: boardH / 2 - boardHeight / 2),
+            size: CGSize(width: boardW, height: boardHeight)
+        )
+        let trayTop = fullH - safe.bottom - trayH
+        let trayBottom = fullH - safe.bottom
+
+        return ZStack(alignment: .topLeading) {
+            Color(.systemGroupedBackground)
+                .ignoresSafeArea()
+
+            if layoutValid {
+                pieceTrayBackground(geo: geo, trayHeight: trayH)
+            }
+
+            if layoutValid {
+                VStack(spacing: 0) {
+                    Color.clear.frame(height: boardTop)
+                    ZStack(alignment: .topLeading) {
+                        boardBackground(in: boardAreaRect, imageToShow: displayImage ?? image)
+                            .onAppear { updateSlotsAndPieces(in: boardAreaRect, geo: geo, trayHeight: trayH, imageForPieces: displayImage ?? image) }
+                        ForEach(pieces.filter(\.isPlaced)) { piece in
+                            if let slot = slots.first(where: { $0.index == piece.slotIndex }),
+                               slot.frame.width > 0, slot.frame.height > 0 {
+                                pieceImage(piece)
+                                    .frame(width: slot.frame.width, height: slot.frame.height)
+                                    .clipShape(PuzzlePieceShape(kind: piece.shapeKind))
+                                    .position(x: slot.frame.midX, y: slot.frame.midY)
+                            }
+                        }
+                    }
+                    .frame(width: fullW, height: boardH)
+                    .clipped()
+                }
+                .frame(width: fullW, height: boardTop + boardH)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+
+                ZStack(alignment: .topLeading) {
+                    ForEach(pieces.filter { !$0.isPlaced }) { piece in
+                        draggablePieceInTray(
+                            piece, in: boardAreaRect,
+                            boardTop: boardTop,
+                            trayTop: trayTop, trayBottom: trayBottom,
+                            trayPieceScale: trayPieceScale,
+                            draggingPieceId: $draggingPieceId, dragOffset: $dragOffset,
+                            placePiece: { id, slot in placePiece(id: id, at: slot) },
+                            returnPieceToTray: { id in returnPieceToTray(id: id, trayTop: trayTop, trayBottom: trayBottom) }
+                        )
+                    }
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+
+            if allPlaced {
+                completionView
+            }
+        }
+        .preference(key: TrayBoundsKey.self, value: layoutValid ? TrayBounds(top: trayTop, bottom: trayBottom) : nil)
+    }
+
+    private func updateSlotsAndPieces(in rect: CGRect, geo: GeometryProxy, trayHeight: CGFloat, imageForPieces: UIImage) {
+        guard rect.width >= minBoardSize, rect.height >= minBoardSize,
+              rect.width.isFinite, rect.height.isFinite else { return }
+        let expectedCount = pieceCount.rawValue
+        let newSlots = PuzzleGenerator.makeSlots(pieceCount: pieceCount, in: rect, inset: slotInset)
+        guard newSlots.count == expectedCount else { return }
+        slots = newSlots
+        guard newSlots.allSatisfy({ $0.frame.width > 0 && $0.frame.height > 0 }) else { return }
+        pieceSize = newSlots[0].frame.size
+
+        if pieces.isEmpty || pieces.count != expectedCount {
+            if displayImage == nil {
+                displayImage = PuzzleGenerator.normalizedImage(for: imageForPieces) ?? imageForPieces
+            }
+            let img = displayImage ?? imageForPieces
+            let images = PuzzleGenerator.makePieceImages(from: img, slots: newSlots, boardRect: rect)
+            guard images.count == expectedCount else { return }
+            let fullW = geo.size.width
+            let fullH = geo.size.height
+            let safeBottom = geo.safeAreaInsets.bottom
+            let margin: CGFloat = 20
+            let totalPieceW = newSlots.reduce(0) { $0 + $1.frame.width }
+            let maxPieceH = newSlots.map(\.frame.height).max() ?? 0
+            let n = newSlots.count
+            let trayMarginH: CGFloat = 24
+            let trayMarginV: CGFloat = 24
+            let usableTrayW = max(1, fullW - 2 * margin - trayMarginH)
+            let usableTrayH = max(1, trayHeight - 2 * trayMarginV)
+            let minSpacing: CGFloat = 8
+            let scaleForWidth = (usableTrayW - CGFloat(max(0, n - 1)) * minSpacing) / max(totalPieceW, 0.1)
+            let scaleForHeight = usableTrayH / max(maxPieceH, 0.1)
+            let scale = min(1.0, scaleForWidth, scaleForHeight)
+            trayPieceScale = scale
+            let totalScaledW = totalPieceW * scale + CGFloat(max(0, n - 1)) * minSpacing
+            let leftX = max(margin, min(fullW - margin - totalScaledW, fullW / 2 - totalScaledW / 2))
+            let trayTop = fullH - safeBottom - trayHeight
+            let pieceH = maxPieceH * scale
+            let halfH = pieceH / 2
+            let bufferFromTrayTop: CGFloat = 32
+            let minCenterY = trayTop + halfH + max(trayMarginV, bufferFromTrayTop)
+            let maxCenterY = trayTop + trayHeight - halfH - trayMarginV
+            let trayCenterY = trayTop + trayHeight * 0.6
+            let centerY = min(max(minCenterY, trayCenterY), maxCenterY)
+            var positions: [CGPoint] = []
+            var x = leftX
+            for i in 0..<newSlots.count {
+                let w = newSlots[i].frame.width * scale
+                positions.append(CGPoint(x: x + w / 2, y: centerY))
+                x += w + minSpacing
+            }
+            initialPiecePositions = positions
+            let shapeKinds = newSlots.map(\.shapeKind)
+            pieces = PuzzleGenerator.makePieces(pieceImages: images, initialPositions: positions, shapeKinds: shapeKinds)
+        }
+    }
+
+    /// 下部のピース置き場の背景（グレー帯・サフェリアの直上に収める）
+    private func pieceTrayBackground(geo: GeometryProxy, trayHeight: CGFloat) -> some View {
+        let safeBottom = geo.safeAreaInsets.bottom
+        return VStack(spacing: 0) {
+            Spacer(minLength: 0)
+            Rectangle()
+                .fill(Color(.systemGray5))
+                .frame(height: trayHeight)
+                .padding(.bottom, safeBottom)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    /// 同じ画像でピースを未配置の状態に戻す（もういちど）
+    private func resetPuzzleForSameImage() {
+        guard !initialPiecePositions.isEmpty, initialPiecePositions.count == pieces.count else { return }
+        pieces = pieces.enumerated().map { _, p in
+            PuzzlePiece(
+                id: p.id,
+                slotIndex: p.slotIndex,
+                image: p.image,
+                currentPosition: initialPiecePositions[p.id],
+                isPlaced: false,
+                shapeKind: p.shapeKind
+            )
+        }
+    }
+
+    private func boardBackground(in rect: CGRect, imageToShow: UIImage) -> some View {
+        ZStack {
+            // ボードは写真と同じアスペクト比なので、フィットで隙間なく表示（ピース切り抜きと同じ画像を使用）
+            Image(uiImage: imageToShow)
+                .resizable()
+                .scaledToFit()
+                .frame(width: max(1, rect.width), height: max(1, rect.height))
+                .opacity(0.35)
+                .clipShape(RoundedRectangle(cornerRadius: 24))
+
+            // スロットの「穴」＝形に合わせた枠（ボード内はローカル座標で配置）
+            ForEach(slots) { slot in
+                if slot.frame.width > 0, slot.frame.height > 0 {
+                    let localX = slot.frame.midX - rect.minX
+                    let localY = slot.frame.midY - rect.minY
+                    let shape = PuzzlePieceShape(kind: slot.shapeKind)
+                    shape
+                        .stroke(Color.primary.opacity(0.5), lineWidth: 4)
+                        .background(shape.fill(Color.white))
+                        .frame(width: slot.frame.width, height: slot.frame.height)
+                        .position(x: localX, y: localY)
+                }
+            }
+        }
+        .frame(width: max(1, rect.width), height: max(1, rect.height))
+        .position(x: rect.midX, y: rect.midY)
+    }
+
+    private func pieceImage(_ piece: PuzzlePiece) -> some View {
+        Image(uiImage: piece.image)
+            .resizable()
+            .scaledToFill()
+    }
+
+    @State private var draggingPieceId: Int?
+    @State private var dragOffset: CGSize = .zero
+
+    /// 未配置ピース（全画面座標で描画・ドラッグで上にも動かせる）
+    private func draggablePieceInTray(
+        _ piece: PuzzlePiece, in rect: CGRect,
+        boardTop: CGFloat,
+        trayTop: CGFloat, trayBottom: CGFloat, trayPieceScale: CGFloat,
+        draggingPieceId: Binding<Int?>, dragOffset: Binding<CGSize>,
+        placePiece: @escaping (Int, PuzzleSlot) -> Void, returnPieceToTray: @escaping (Int) -> Void
+    ) -> some View {
+        let slot = slots.first(where: { $0.index == piece.slotIndex })
+        let pw = max(1, slot?.frame.width ?? pieceSize.width)
+        let ph = max(1, slot?.frame.height ?? pieceSize.height)
+        let isDragging = draggingPieceId.wrappedValue == piece.id
+        let dx = isDragging ? dragOffset.wrappedValue.width : 0
+        let dy = isDragging ? dragOffset.wrappedValue.height : 0
+        let trayH = trayBottom - trayTop
+        let halfPieceH = (ph * trayPieceScale) / 2
+        let trayMargin: CGFloat = 20
+        let trayMinY = trayTop + halfPieceH + trayMargin
+        let trayMaxY = trayBottom - halfPieceH - trayMargin
+        let drawnY: CGFloat = isDragging
+            ? piece.currentPosition.y + dy
+            : min(max(piece.currentPosition.y, trayMinY), trayMaxY)
+        let currentY = drawnY
+        let isAboveTray = currentY < trayTop
+        let displayScale: CGFloat = isAboveTray ? 1.0 : trayPieceScale
+        return pieceImage(piece)
+            .frame(width: pw * displayScale, height: ph * displayScale)
+            .animation(.easeInOut(duration: 0.2), value: displayScale)
+            .clipShape(PuzzlePieceShape(kind: piece.shapeKind))
+            .shadow(color: .black.opacity(0.3), radius: isDragging ? 12 : 4, y: 4)
+            .position(x: piece.currentPosition.x + dx, y: drawnY)
+            .zIndex(isDragging ? 100 : 0)
+            .gesture(
+                DragGesture()
+                    .onChanged { value in
+                        draggingPieceId.wrappedValue = piece.id
+                        dragOffset.wrappedValue = value.translation
+                    }
+                    .onEnded { value in
+                        let endPos = CGPoint(
+                            x: piece.currentPosition.x + value.translation.width,
+                            y: piece.currentPosition.y + value.translation.height
+                        )
+                        // スロットはボード領域ローカルなので、画面座標に変換して比較
+                        let hitSlot = slots.first { s in
+                            let slotMidInFull = CGPoint(x: s.frame.midX, y: boardTop + s.frame.midY)
+                            return abs(endPos.x - slotMidInFull.x) < snapThreshold &&
+                                abs(endPos.y - slotMidInFull.y) < snapThreshold
+                        }
+                        if let hit = hitSlot, hit.index == piece.slotIndex {
+                            AudioManager.shared.playSuccess()
+                            placePiece(piece.id, hit)
+                        } else {
+                            AudioManager.shared.playWrong()
+                            returnPieceToTray(piece.id)
+                        }
+                        dragOffset.wrappedValue = .zero
+                        draggingPieceId.wrappedValue = nil
+                    }
+            )
+    }
+
+    private func placePiece(id: Int, at slot: PuzzleSlot) {
+        guard let idx = pieces.firstIndex(where: { $0.id == id }) else { return }
+        var updated = pieces
+        updated[idx].isPlaced = true
+        updated[idx].currentPosition = CGPoint(x: slot.frame.midX, y: slot.frame.midY)
+        pieces = updated
+    }
+
+    /// 正解の枠にハマらなかったとき、下部トレイの初期位置に戻す（Yはトレイ内にクランプ）
+    private func returnPieceToTray(id: Int, trayTop: CGFloat, trayBottom: CGFloat) {
+        guard let idx = pieces.firstIndex(where: { $0.id == id }),
+              id < initialPiecePositions.count else { return }
+        let piece = pieces[idx]
+        let ph = slots.first(where: { $0.index == piece.slotIndex })?.frame.height ?? pieceSize.height
+        let halfH = (ph * trayPieceScale) / 2
+        let margin: CGFloat = 20
+        let trayMinY = trayTop + halfH + margin
+        let trayMaxY = trayBottom - halfH - margin
+        let clampedY = min(max(initialPiecePositions[id].y, trayMinY), trayMaxY)
+        var updated = pieces
+        updated[idx].currentPosition = CGPoint(x: initialPiecePositions[id].x, y: clampedY)
+        pieces = updated
+    }
+
+    private var completionView: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "star.circle.fill")
+                .font(.system(size: 60))
+                .foregroundStyle(.yellow)
+            Text("できたね！")
+                .font(.largeTitle)
+                .fontWeight(.bold)
+        }
+        .padding(.vertical, 24)
+    }
+
+    private var celebrationOverlay: some View {
+        ZStack {
+            Color.black.opacity(0.3)
+                .ignoresSafeArea()
+            VStack(spacing: 24) {
+                Image(systemName: "star.circle.fill")
+                    .font(.system(size: 80))
+                    .foregroundStyle(.yellow)
+                Text("できたね！")
+                    .font(.system(size: 36, weight: .bold))
+                    .foregroundStyle(.white)
+                Button("もういちど") {
+                    showCelebration = false
+                    resetPuzzleForSameImage()
+                }
+                .font(.title2)
+                .buttonStyle(.borderedProminent)
+                .tint(.orange)
+            }
+            .padding(48)
+            .background(RoundedRectangle(cornerRadius: 24).fill(.ultraThinMaterial))
+        }
+    }
+}
+
+#Preview {
+    if let img = UIImage(systemName: "photo") {
+        PuzzleView(image: img, pieceCount: .six, onBackToStart: {})
+    }
+}
