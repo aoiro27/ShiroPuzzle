@@ -117,7 +117,10 @@ struct PuzzleView: View {
         .navigationBarHidden(true)
         .onChange(of: pieces.filter(\.isPlaced).count) { _, count in
             allPlaced = count == pieceCount.rawValue
-            if allPlaced { showCelebration = true }
+            if allPlaced {
+                showCelebration = true
+                AudioManager.shared.playClear()
+            }
         }
         .overlay {
             if showCelebration {

@@ -6,6 +6,7 @@
 //  - bgm_start.mp3 … 最初の画面用BGM（ループ）
 //  - bgm_game.mp3  … ゲーム画面用BGM（ループ）
 //  - success / wrong … 正解・不正解の効果音（.wav / .mp3 / .m4a）
+//  - clear … クリア時の効果音（.wav / .mp3 / .m4a）
 //  ファイルが無い場合は効果音のみシステム音でフォールバック
 //
 
@@ -83,6 +84,13 @@ final class AudioManager {
     func playWrong() {
         if !playSFX(resource: "wrong", extensions: ["wav", "mp3", "m4a"]) {
             AudioServicesPlaySystemSound(1073) // エラー風
+        }
+    }
+
+    /// クリア時（clear.mp3 / .wav / .m4a）
+    func playClear() {
+        if !playSFX(resource: "clear", extensions: ["wav", "mp3", "m4a"]) {
+            AudioServicesPlaySystemSound(1057)
         }
     }
 
