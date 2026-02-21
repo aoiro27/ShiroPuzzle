@@ -452,6 +452,7 @@ struct PuzzleView: View {
                     slots = []
                     pieces = []
                     regenerateCount += 1
+                    AudioManager.shared.playBGMGame()
                 }
                 .font(.title2)
                 .buttonStyle(.borderedProminent)

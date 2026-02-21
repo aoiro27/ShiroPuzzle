@@ -14,14 +14,15 @@ import AVFoundation
 import AudioToolbox
 import SwiftUI
 
-final class AudioManager {
+final class AudioManager: NSObject, AVAudioPlayerDelegate {
     static let shared = AudioManager()
 
     private var bgmPlayer: AVAudioPlayer?
-    /// 効果音再生中は参照を保持（解放されると再生が止まるため）
+    /// 効果音再生中は参照を保持（再生終了まで保持して途中で切れないようにする）
     private var sfxPlayer: AVAudioPlayer?
 
-    private init() {
+    private override init() {
+        super.init()
         configureAudioSession()
     }
 
@@ -59,7 +60,7 @@ final class AudioManager {
         do {
             let player = try AVAudioPlayer(contentsOf: url)
             player.numberOfLoops = -1
-            player.volume = 0.5
+            player.volume = 0.35
             player.prepareToPlay()
             player.play()
             bgmPlayer = player
@@ -87,8 +88,9 @@ final class AudioManager {
         }
     }
 
-    /// クリア時（clear.mp3 / .wav / .m4a）
+    /// クリア時（clear.mp3 / .wav / .m4a）。BGMを止めてクリア音を強調
     func playClear() {
+        stopBGM()
         if !playSFX(resource: "clear", extensions: ["wav", "mp3", "m4a"]) {
             AudioServicesPlaySystemSound(1057)
         }
@@ -99,17 +101,21 @@ final class AudioManager {
         guard let url = extensions.lazy.compactMap({ Bundle.main.url(forResource: resource, withExtension: $0) }).first else { return false }
         do {
             let player = try AVAudioPlayer(contentsOf: url)
-            player.volume = 0.8
+            player.volume = 1.0
+            player.delegate = self
             player.prepareToPlay()
             sfxPlayer = player
             player.play()
-            DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
-                self?.sfxPlayer = nil
-            }
             return true
         } catch {
             sfxPlayer = nil
             return false
+        }
+    }
+
+    func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
+        if player === sfxPlayer {
+            sfxPlayer = nil
         }
     }
 }
