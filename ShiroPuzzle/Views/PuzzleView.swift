@@ -281,15 +281,15 @@ struct PuzzleView: View {
         applySlotsAndPieces(rect: ctx.rect, viewOffset: ctx.viewOffset, fillScale: ctx.fillScale, fullW: ctx.fullW, fullH: ctx.fullH, safeBottom: ctx.safeBottom, trayHeight: ctx.trayHeight, imageForPieces: imageForPieces)
     }
 
-    /// 下部のピース置き場の背景（グレー帯・サフェリアの直上に収める）
+    /// 下部のピース置き場の背景（グレー帯・画面最下部まで隙間なく）
     private func pieceTrayBackground(geo: GeometryProxy, trayHeight: CGFloat) -> some View {
         let safeBottom = geo.safeAreaInsets.bottom
         return VStack(spacing: 0) {
             Spacer(minLength: 0)
             Rectangle()
                 .fill(Color(.systemGray5))
-                .frame(height: trayHeight)
-                .padding(.bottom, safeBottom)
+                .frame(height: trayHeight + safeBottom)
+                .ignoresSafeArea(edges: .bottom)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
