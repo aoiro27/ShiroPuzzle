@@ -10,6 +10,7 @@ import SwiftUI
 struct ContentView: View {
     @State private var selectedImage: UIImage?
     @State private var showPhotoPicker = false
+    @State private var showCamera = false
     /// ピース数（Int で保持して Picker の binding を確実にする）
     @State private var selectedPieceCountRaw: Int = 6
 
@@ -31,6 +32,10 @@ struct ContentView: View {
         }
         .fullScreenCover(isPresented: $showPhotoPicker) {
             PhotoPicker(image: $selectedImage)
+                .ignoresSafeArea()
+        }
+        .fullScreenCover(isPresented: $showCamera) {
+            CameraPicker(image: $selectedImage)
                 .ignoresSafeArea()
         }
     }
@@ -76,6 +81,21 @@ struct ContentView: View {
                             .foregroundStyle(.white)
                     }
                     .padding(.horizontal, 48)
+
+                    if UIImagePickerController.isSourceTypeAvailable(.camera) {
+                        Button {
+                            showCamera = true
+                        } label: {
+                            Label("カメラで撮る", systemImage: "camera.fill")
+                                .font(.title2)
+                                .fontWeight(.semibold)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 20)
+                                .background(Color.orange.opacity(0.85).gradient, in: RoundedRectangle(cornerRadius: 16))
+                                .foregroundStyle(.white)
+                        }
+                        .padding(.horizontal, 48)
+                    }
 
                     // ピース数（選択がはっきりわかるように）
                     VStack(alignment: .leading, spacing: 8) {
