@@ -19,6 +19,24 @@ private struct TrayBoundsKey: PreferenceKey {
     }
 }
 
+/// 初回レイアウト確定後に枠・ピース生成で使う値（Preference で渡し、遅延タスクで参照）
+private struct LayoutContext: Equatable {
+    var rect: CGRect
+    var viewOffset: CGPoint
+    var fillScale: CGFloat
+    var fullW: CGFloat
+    var fullH: CGFloat
+    var safeBottom: CGFloat
+    var trayHeight: CGFloat
+}
+
+private struct LayoutContextKey: PreferenceKey {
+    static var defaultValue: LayoutContext? { nil }
+    static func reduce(value: inout LayoutContext?, nextValue: () -> LayoutContext?) {
+        if let next = nextValue() { value = next }
+    }
+}
+
 struct PuzzleView: View {
     let image: UIImage
     let pieceCount: PuzzlePieceCount
@@ -38,6 +56,10 @@ struct PuzzleView: View {
     @State private var displayImage: UIImage?
     /// 「もういちど」で枠・ピースを再生成するためのカウンタ（.id でビュー再生成 → onAppear で再実行）
     @State private var regenerateCount = 0
+    /// 初回のみレイアウト確定を待ってから枠・ピース生成する（初回だけ geo が未確定でずれるため）
+    @State private var hasCompletedInitialLayout = false
+    /// 現在のレイアウト（Preference で更新。初回遅延タスクでこの値を使って再生成）
+    @State private var lastLayoutContext: LayoutContext?
 
     private let slotInset: CGFloat = 12
     private let snapThreshold: CGFloat = 50
@@ -53,6 +75,9 @@ struct PuzzleView: View {
     var body: some View {
         GeometryReader { geo in
             puzzleContent(geo: geo)
+        }
+        .onPreferenceChange(LayoutContextKey.self) { ctx in
+            lastLayoutContext = ctx
         }
         .onPreferenceChange(TrayBoundsKey.self) { bounds in
             guard let b = bounds else { return }
@@ -140,7 +165,19 @@ struct PuzzleView: View {
             if layoutValid {
                 ZStack(alignment: .topLeading) {
                     boardSlotsOnly(in: boardAreaRect)
-                        .onAppear { updateSlotsAndPieces(in: boardAreaRect, geo: geo, trayHeight: trayH, imageForPieces: displayImage ?? image, viewOffset: viewOffset, fillScale: fillScale) }
+                        .onAppear {
+                            if !hasCompletedInitialLayout {
+                                Task { @MainActor in
+                                    try? await Task.sleep(nanoseconds: 150_000_000)
+                                    if let ctx = lastLayoutContext {
+                                        updateSlotsAndPieces(context: ctx, imageForPieces: displayImage ?? image)
+                                    }
+                                    hasCompletedInitialLayout = true
+                                }
+                            } else {
+                                updateSlotsAndPieces(in: boardAreaRect, geo: geo, trayHeight: trayH, imageForPieces: displayImage ?? image, viewOffset: viewOffset, fillScale: fillScale)
+                            }
+                        }
                     ForEach(pieces.filter(\.isPlaced)) { piece in
                         if let slot = slots.first(where: { $0.index == piece.slotIndex }),
                            slot.frame.width > 0, slot.frame.height > 0 {
@@ -176,9 +213,14 @@ struct PuzzleView: View {
             }
         }
         .preference(key: TrayBoundsKey.self, value: layoutValid ? TrayBounds(top: trayTop, bottom: trayBottom) : nil)
+        .preference(key: LayoutContextKey.self, value: layoutValid ? LayoutContext(rect: boardAreaRect, viewOffset: viewOffset, fillScale: fillScale, fullW: fullW, fullH: fullH, safeBottom: safe.bottom, trayHeight: trayH) : nil)
     }
 
     private func updateSlotsAndPieces(in rect: CGRect, geo: GeometryProxy, trayHeight: CGFloat, imageForPieces: UIImage, viewOffset: CGPoint, fillScale: CGFloat) {
+        applySlotsAndPieces(rect: rect, viewOffset: viewOffset, fillScale: fillScale, fullW: geo.size.width, fullH: geo.size.height, safeBottom: geo.safeAreaInsets.bottom, trayHeight: trayHeight, imageForPieces: imageForPieces)
+    }
+
+    private func applySlotsAndPieces(rect: CGRect, viewOffset: CGPoint, fillScale: CGFloat, fullW: CGFloat, fullH: CGFloat, safeBottom: CGFloat, trayHeight: CGFloat, imageForPieces: UIImage) {
         guard rect.width >= minBoardSize, rect.height >= minBoardSize,
               rect.width.isFinite, rect.height.isFinite else { return }
         let expectedCount = pieceCount.rawValue
@@ -195,9 +237,6 @@ struct PuzzleView: View {
             let img = displayImage ?? imageForPieces
             let images = PuzzleGenerator.makePieceImages(from: img, slots: newSlots, viewOffset: viewOffset, fillScale: fillScale)
             guard images.count == expectedCount else { return }
-            let fullW = geo.size.width
-            let fullH = geo.size.height
-            let safeBottom = geo.safeAreaInsets.bottom
             let margin: CGFloat = 20
             let totalPieceW = newSlots.reduce(0) { $0 + $1.frame.width }
             let maxPieceH = newSlots.map(\.frame.height).max() ?? 0
@@ -232,6 +271,11 @@ struct PuzzleView: View {
             let shapeKinds = newSlots.map(\.shapeKind)
             pieces = PuzzleGenerator.makePieces(pieceImages: images, initialPositions: positions, shapeKinds: shapeKinds)
         }
+    }
+
+    /// 初回用：Preference で確定したレイアウトを使って枠・ピース生成（ずれ防止）
+    private func updateSlotsAndPieces(context ctx: LayoutContext, imageForPieces: UIImage) {
+        applySlotsAndPieces(rect: ctx.rect, viewOffset: ctx.viewOffset, fillScale: ctx.fillScale, fullW: ctx.fullW, fullH: ctx.fullH, safeBottom: ctx.safeBottom, trayHeight: ctx.trayHeight, imageForPieces: imageForPieces)
     }
 
     /// 下部のピース置き場の背景（グレー帯・サフェリアの直上に収める）
