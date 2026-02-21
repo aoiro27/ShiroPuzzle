@@ -89,14 +89,14 @@ enum PuzzleGenerator {
         return drawImageWithOrientationUp(image)
     }
 
-    /// 各スロットの frame に対応する画像領域を切り出してピース用 UIImage の配列を返す
-    /// UIKit 座標（左上原点）で描画して切り抜き、CGImage の座標系の影響を避ける
+    /// 各スロットの frame（画面座標）に対応する画像領域を切り出し。画像は scaledToFill(fullW,fullH) で表示しているときの viewOffset/fillScale で変換
     static func makePieceImages(
         from image: UIImage,
         slots: [PuzzleSlot],
-        boardRect: CGRect
+        viewOffset: CGPoint,
+        fillScale: CGFloat
     ) -> [UIImage] {
-        guard !slots.isEmpty, boardRect.width > 0, boardRect.height > 0 else { return [] }
+        guard !slots.isEmpty, fillScale > 0 else { return [] }
         let imageW = image.size.width
         let imageH = image.size.height
         guard imageW > 0, imageH > 0 else { return [] }
@@ -105,20 +105,14 @@ enum PuzzleGenerator {
         format.scale = image.scale
         for slot in slots {
             let f = slot.frame
-            let xFraction = (f.minX - boardRect.minX) / boardRect.width
-            let yFraction = (f.minY - boardRect.minY) / boardRect.height
-            let wFraction = f.width / boardRect.width
-            let hFraction = f.height / boardRect.height
-            let cropX = xFraction * imageW
-            let cropY = yFraction * imageH
-            let cropW = wFraction * imageW
-            let cropH = hFraction * imageH
+            let cropX = (f.minX - viewOffset.x) / fillScale
+            let cropY = (f.minY - viewOffset.y) / fillScale
+            let cropW = f.width / fillScale
+            let cropH = f.height / fillScale
             guard cropW >= 1, cropH >= 1 else { continue }
             let renderer = UIGraphicsImageRenderer(size: CGSize(width: cropW, height: cropH), format: format)
-            let cropped = renderer.image { ctx in
-                let cg = ctx.cgContext
-                cg.translateBy(x: -cropX, y: -cropY)
-                image.draw(at: .zero)
+            let cropped = renderer.image { _ in
+                image.draw(at: CGPoint(x: -cropX, y: -cropY))
             }
             result.append(cropped)
         }
