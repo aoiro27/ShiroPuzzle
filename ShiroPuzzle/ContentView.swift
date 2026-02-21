@@ -42,10 +42,16 @@ struct ContentView: View {
 
     private var startView: some View {
         ZStack {
+            Image("StartBackground")
+                .resizable()
+                .scaledToFill()
+                .ignoresSafeArea()
+                .clipped()
+
             LinearGradient(
                 colors: [
-                    Color(red: 1.0, green: 0.95, blue: 0.9),
-                    Color(red: 1.0, green: 0.98, blue: 0.94)
+                    Color.white.opacity(0.5),
+                    Color.white.opacity(0.35)
                 ],
                 startPoint: .top,
                 endPoint: .bottom
