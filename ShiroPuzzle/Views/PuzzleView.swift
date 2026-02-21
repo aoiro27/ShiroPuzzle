@@ -37,6 +37,52 @@ private struct LayoutContextKey: PreferenceKey {
     }
 }
 
+/// ピースがハマったときの「揺れ＋フラッシュ」エフェクト
+private struct PlaceSuccessEffect: ViewModifier {
+    let trigger: Int
+    @State private var shakeOffset: CGFloat = 0
+    @State private var flashOpacity: Double = 0
+
+    func body(content: Content) -> some View {
+        content
+            .offset(x: shakeOffset)
+            .overlay {
+                Color.white
+                    .opacity(flashOpacity)
+                    .allowsHitTesting(false)
+                    .ignoresSafeArea()
+            }
+            .onChange(of: trigger) { _, _ in
+                runShake()
+                runFlash()
+            }
+    }
+
+    private func runShake() {
+        let steps: [CGFloat] = [6, -6, 4, -4, 2, -2, 0]
+        Task { @MainActor in
+            for step in steps {
+                withAnimation(.easeInOut(duration: 0.03)) {
+                    shakeOffset = step
+                }
+                try? await Task.sleep(nanoseconds: 32_000_000)
+            }
+        }
+    }
+
+    private func runFlash() {
+        withAnimation(.easeOut(duration: 0.12)) {
+            flashOpacity = 0.4
+        }
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 120_000_000)
+            withAnimation(.easeOut(duration: 0.25)) {
+                flashOpacity = 0
+            }
+        }
+    }
+}
+
 struct PuzzleView: View {
     let image: UIImage
     let pieceCount: PuzzlePieceCount
@@ -60,6 +106,8 @@ struct PuzzleView: View {
     @State private var hasCompletedInitialLayout = false
     /// 現在のレイアウト（Preference で更新。初回遅延タスクでこの値を使って再生成）
     @State private var lastLayoutContext: LayoutContext?
+    /// ピースがハマったときのエフェクト用（インクリメントで揺れ＋フラッシュ発火）
+    @State private var placeEffectTrigger = 0
 
     private let slotInset: CGFloat = 12
     private let snapThreshold: CGFloat = 50
@@ -75,6 +123,7 @@ struct PuzzleView: View {
     var body: some View {
         GeometryReader { geo in
             puzzleContent(geo: geo)
+                .modifier(PlaceSuccessEffect(trigger: placeEffectTrigger))
         }
         .onPreferenceChange(LayoutContextKey.self) { ctx in
             lastLayoutContext = ctx
@@ -203,7 +252,10 @@ struct PuzzleView: View {
                             trayTop: trayTop, trayBottom: trayBottom,
                             trayPieceScale: trayPieceScale,
                             draggingPieceId: $draggingPieceId, dragOffset: $dragOffset,
-                            placePiece: { id, slot in placePiece(id: id, at: slot) },
+                            placePiece: { id, slot in
+                                placeEffectTrigger += 1
+                                placePiece(id: id, at: slot)
+                            },
                             returnPieceToTray: { id in returnPieceToTray(id: id, trayTop: trayTop, trayBottom: trayBottom) }
                         )
                     }

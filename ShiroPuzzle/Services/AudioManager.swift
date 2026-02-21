@@ -7,6 +7,7 @@
 //  - bgm_game.mp3  … ゲーム画面用BGM（ループ）
 //  - success / wrong … 正解・不正解の効果音（.wav / .mp3 / .m4a）
 //  - clear … クリア時の効果音（.wav / .mp3 / .m4a）
+//  - cheer … クリア時に同時再生する歓声（.wav / .mp3 / .m4a）
 //  ファイルが無い場合は効果音のみシステム音でフォールバック
 //
 
@@ -20,6 +21,8 @@ final class AudioManager: NSObject, AVAudioPlayerDelegate {
     private var bgmPlayer: AVAudioPlayer?
     /// 効果音再生中は参照を保持（再生終了まで保持して途中で切れないようにする）
     private var sfxPlayer: AVAudioPlayer?
+    /// クリア時に同時再生する歓声用（clear と同時に鳴らす）
+    private var cheerPlayer: AVAudioPlayer?
 
     private override init() {
         super.init()
@@ -88,11 +91,29 @@ final class AudioManager: NSObject, AVAudioPlayerDelegate {
         }
     }
 
-    /// クリア時（clear.mp3 / .wav / .m4a）。BGMを止めてクリア音を強調
+    /// クリア時（clear ＋ cheer を同時再生）。BGMを止めて派手に
     func playClear() {
         stopBGM()
+        startCheerIfAvailable()
         if !playSFX(resource: "clear", extensions: ["wav", "mp3", "m4a"]) {
             AudioServicesPlaySystemSound(1057)
+        }
+    }
+
+    /// 歓声（cheer）を再生。clear と同時に鳴らす用
+    private func startCheerIfAvailable() {
+        guard let url = ["wav", "mp3", "m4a"].lazy
+            .compactMap({ Bundle.main.url(forResource: "cheer", withExtension: $0) })
+            .first else { return }
+        do {
+            let player = try AVAudioPlayer(contentsOf: url)
+            player.volume = 0.7
+            player.delegate = self
+            player.prepareToPlay()
+            cheerPlayer = player
+            player.play()
+        } catch {
+            cheerPlayer = nil
         }
     }
 
@@ -116,6 +137,9 @@ final class AudioManager: NSObject, AVAudioPlayerDelegate {
     func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
         if player === sfxPlayer {
             sfxPlayer = nil
+        }
+        if player === cheerPlayer {
+            cheerPlayer = nil
         }
     }
 }
