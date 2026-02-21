@@ -475,6 +475,9 @@ struct PuzzleView: View {
         ZStack {
             Color.black.opacity(0.3)
                 .ignoresSafeArea()
+            FireworksView()
+                .ignoresSafeArea()
+                .allowsHitTesting(false)
             VStack(spacing: 24) {
                 Image(systemName: "star.circle.fill")
                     .font(.system(size: 80))
