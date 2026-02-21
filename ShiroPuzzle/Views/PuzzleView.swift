@@ -36,6 +36,8 @@ struct PuzzleView: View {
     @State private var trayPieceScale: CGFloat = 1.0
     /// 向き正規化した画像（ボード表示とピース切り抜きで同一にする）
     @State private var displayImage: UIImage?
+    /// 「もういちど」で枠・ピースを再生成するためのカウンタ（.id でビュー再生成 → onAppear で再実行）
+    @State private var regenerateCount = 0
 
     private let slotInset: CGFloat = 12
     private let snapThreshold: CGFloat = 50
@@ -151,6 +153,7 @@ struct PuzzleView: View {
                 }
                 .frame(width: fullW, height: boardH)
                 .clipped()
+                .id(regenerateCount)
 
                 ZStack(alignment: .topLeading) {
                     ForEach(pieces.filter { !$0.isPlaced }) { piece in
@@ -398,7 +401,10 @@ struct PuzzleView: View {
                     .foregroundStyle(.white)
                 Button("もういちど") {
                     showCelebration = false
-                    resetPuzzleForSameImage()
+                    allPlaced = false
+                    slots = []
+                    pieces = []
+                    regenerateCount += 1
                 }
                 .font(.title2)
                 .buttonStyle(.borderedProminent)
