@@ -593,7 +593,7 @@ struct PuzzleView: View {
             FireworksView()
                 .ignoresSafeArea()
                 .allowsHitTesting(false)
-            VStack(spacing: 24) {
+            VStack(spacing: 28) {
                 Image(systemName: "star.circle.fill")
                     .font(.system(size: 80))
                     .foregroundStyle(.yellow)
@@ -609,12 +609,24 @@ struct PuzzleView: View {
                     regenerateCount += 1
                     AudioManager.shared.playBGMGame()
                 }
-                .font(.title2)
+                .font(.system(size: 34, weight: .bold, design: .rounded))
+                .padding(.horizontal, 56)
+                .padding(.vertical, 24)
                 .buttonStyle(.borderedProminent)
                 .tint(.orange)
             }
             .padding(48)
             .background(RoundedRectangle(cornerRadius: 24).fill(.ultraThinMaterial))
+            .overlay(alignment: .topTrailing) {
+                Button("やめる") {
+                    showCelebration = false
+                    onBackToStart()
+                }
+                .font(.system(size: 16, weight: .medium))
+                .foregroundStyle(.secondary)
+                .padding(.top, 12)
+                .padding(.trailing, 12)
+            }
         }
     }
 }
