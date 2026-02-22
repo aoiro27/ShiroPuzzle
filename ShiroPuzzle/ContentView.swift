@@ -8,6 +8,7 @@
 import SwiftUI
 
 struct ContentView: View {
+    @AppStorage("soundEnabled") private var soundEnabled = true
     @State private var selectedImage: UIImage?
     @State private var showPhotoPicker = false
     @State private var showCamera = false
@@ -133,6 +134,13 @@ struct ContentView: View {
                         }
                     }
 
+                    Toggle(isOn: $soundEnabled) {
+                        Label("サウンド", systemImage: soundEnabled ? "speaker.wave.2.fill" : "speaker.slash.fill")
+                            .font(.system(size: 22, weight: .medium))
+                    }
+                    .toggleStyle(.button)
+                    .padding(.horizontal, 24)
+
                     // ピース数（選択がはっきりわかるように）
                     VStack(alignment: .center, spacing: 14) {
                         Text("ピースのかず")
@@ -163,6 +171,10 @@ struct ContentView: View {
             }
             .onAppear {
                 AudioManager.shared.playBGMStart()
+            }
+            .onChange(of: soundEnabled) { _, enabled in
+                if !enabled { AudioManager.shared.stopBGM() }
+                else { AudioManager.shared.playBGMStart() }
             }
         }
     }

@@ -40,8 +40,13 @@ final class AudioManager: NSObject, AVAudioPlayerDelegate {
 
     // MARK: - BGM
 
+    private var isSoundEnabled: Bool {
+        UserDefaults.standard.object(forKey: "soundEnabled") as? Bool ?? true
+    }
+
     /// 最初の画面用BGM（bgm_start.mp3 / .m4a）
     func playBGMStart() {
+        guard isSoundEnabled else { return }
         stopBGM()
         guard let url = urlForBGM(resource: "bgm_start") else { return }
         startBGMPlayer(url: url)
@@ -49,6 +54,7 @@ final class AudioManager: NSObject, AVAudioPlayerDelegate {
 
     /// ゲーム画面用BGM（bgm_game.mp3 / .m4a）
     func playBGMGame() {
+        guard isSoundEnabled else { return }
         stopBGM()
         guard let url = urlForBGM(resource: "bgm_game") else { return }
         startBGMPlayer(url: url)
@@ -80,12 +86,14 @@ final class AudioManager: NSObject, AVAudioPlayerDelegate {
     // MARK: - 効果音
 
     func playSuccess() {
+        guard isSoundEnabled else { return }
         if !playSFX(resource: "success", extensions: ["wav", "mp3", "m4a"]) {
             AudioServicesPlaySystemSound(1057) // 短いポップ音
         }
     }
 
     func playWrong() {
+        guard isSoundEnabled else { return }
         if !playSFX(resource: "wrong", extensions: ["wav", "mp3", "m4a"]) {
             AudioServicesPlaySystemSound(1073) // エラー風
         }
@@ -93,6 +101,7 @@ final class AudioManager: NSObject, AVAudioPlayerDelegate {
 
     /// クリア時（clear ＋ cheer を同時再生）。BGMを止めて派手に
     func playClear() {
+        guard isSoundEnabled else { stopBGM(); return }
         stopBGM()
         startCheerIfAvailable()
         if !playSFX(resource: "clear", extensions: ["wav", "mp3", "m4a"]) {

@@ -37,6 +37,32 @@ private struct LayoutContextKey: PreferenceKey {
     }
 }
 
+/// 不正解時の「首振り」エフェクト（左右に振ってから戻す）
+private struct WrongShakeEffect: ViewModifier {
+    let isActive: Bool
+    @State private var offset: CGFloat = 0
+
+    func body(content: Content) -> some View {
+        content
+            .offset(x: offset)
+            .onChange(of: isActive) { _, active in
+                if active { runShake() } else { offset = 0 }
+            }
+    }
+
+    private func runShake() {
+        let steps: [CGFloat] = [12, -12, 8, -8, 4, -4, 0]
+        Task { @MainActor in
+            for step in steps {
+                withAnimation(.easeInOut(duration: 0.04)) {
+                    offset = step
+                }
+                try? await Task.sleep(nanoseconds: 40_000_000)
+            }
+        }
+    }
+}
+
 /// ピースがハマったときの「揺れ＋フラッシュ」エフェクト
 private struct PlaceSuccessEffect: ViewModifier {
     let trigger: Int
@@ -84,6 +110,7 @@ private struct PlaceSuccessEffect: ViewModifier {
 }
 
 struct PuzzleView: View {
+    @AppStorage("soundEnabled") private var soundEnabled = true
     let image: UIImage
     let pieceCount: PuzzlePieceCount
     /// スタート画面に戻る（「写真を選び直す」で呼ぶ）
@@ -108,6 +135,11 @@ struct PuzzleView: View {
     @State private var lastLayoutContext: LayoutContext?
     /// ピースがハマったときのエフェクト用（インクリメントで揺れ＋フラッシュ発火）
     @State private var placeEffectTrigger = 0
+    /// 正解時「ぱちん」＋枠の光用（はまった直後のピースIDとスロットindex）
+    @State private var lastPlacedPieceId: Int?
+    @State private var lastPlacedSlotIndex: Int?
+    /// 不正解時「首振り」用（戻す直前のピースID）
+    @State private var shakingPieceId: Int?
 
     private let slotInset: CGFloat = 12
     private let snapThreshold: CGFloat = 50
@@ -160,6 +192,12 @@ struct PuzzleView: View {
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
                 Spacer()
+                Toggle(isOn: $soundEnabled) {
+                    Label("サウンド", systemImage: soundEnabled ? "speaker.wave.2.fill" : "speaker.slash.fill")
+                        .font(.headline)
+                }
+                .toggleStyle(.button)
+                .padding(.trailing, 12)
             }
             .background(.ultraThinMaterial)
         }
@@ -178,6 +216,10 @@ struct PuzzleView: View {
         }
         .onAppear {
             AudioManager.shared.playBGMGame()
+        }
+        .onChange(of: soundEnabled) { _, enabled in
+            if !enabled { AudioManager.shared.stopBGM() }
+            else { AudioManager.shared.playBGMGame() }
         }
     }
 
@@ -216,7 +258,7 @@ struct PuzzleView: View {
 
             if layoutValid {
                 ZStack(alignment: .topLeading) {
-                    boardSlotsOnly(in: boardAreaRect)
+                    boardSlotsOnly(in: boardAreaRect, glowingSlotIndex: lastPlacedSlotIndex)
                         .onAppear {
                             if !hasCompletedInitialLayout {
                                 Task { @MainActor in
@@ -233,9 +275,12 @@ struct PuzzleView: View {
                     ForEach(pieces.filter(\.isPlaced)) { piece in
                         if let slot = slots.first(where: { $0.index == piece.slotIndex }),
                            slot.frame.width > 0, slot.frame.height > 0 {
+                            let isJustPlaced = lastPlacedPieceId == piece.id
                             pieceImage(piece)
                                 .frame(width: slot.frame.width, height: slot.frame.height)
                                 .clipShape(PuzzlePieceShape(kind: piece.shapeKind))
+                                .scaleEffect(isJustPlaced ? 1.15 : 1.0)
+                                .animation(.spring(response: 0.25, dampingFraction: 0.6), value: lastPlacedPieceId)
                                 .position(x: slot.frame.midX, y: slot.frame.midY)
                         }
                     }
@@ -252,6 +297,7 @@ struct PuzzleView: View {
                             trayTop: trayTop, trayBottom: trayBottom,
                             trayPieceScale: trayPieceScale,
                             draggingPieceId: $draggingPieceId, dragOffset: $dragOffset,
+                            shakingPieceId: $shakingPieceId,
                             placePiece: { id, slot in
                                 placeEffectTrigger += 1
                                 placePiece(id: id, at: slot)
@@ -357,19 +403,28 @@ struct PuzzleView: View {
         }
     }
 
-    /// スロットの枠だけを描画（背景画像は別レイヤーでフル表示）
-    private func boardSlotsOnly(in rect: CGRect) -> some View {
+    /// スロットの枠だけを描画（背景画像は別レイヤーでフル表示）。正解直後は枠を光らせる
+    private func boardSlotsOnly(in rect: CGRect, glowingSlotIndex: Int?) -> some View {
         ZStack(alignment: .topLeading) {
             ForEach(slots) { slot in
                 if slot.frame.width > 0, slot.frame.height > 0 {
                     let localX = slot.frame.midX - rect.minX
                     let localY = slot.frame.midY - rect.minY
                     let shape = PuzzlePieceShape(kind: slot.shapeKind)
-                    shape
-                        .stroke(Color.primary.opacity(0.5), lineWidth: 4)
-                        .background(shape.fill(Color.white))
-                        .frame(width: slot.frame.width, height: slot.frame.height)
-                        .position(x: localX, y: localY)
+                    let isGlowing = glowingSlotIndex == slot.index
+                    ZStack {
+                        shape
+                            .stroke(Color.primary.opacity(0.5), lineWidth: 4)
+                            .background(shape.fill(Color.white))
+                        if isGlowing {
+                            shape
+                                .stroke(Color.yellow, lineWidth: 6)
+                                .opacity(0.9)
+                                .blur(radius: 2)
+                        }
+                    }
+                    .frame(width: slot.frame.width, height: slot.frame.height)
+                    .position(x: localX, y: localY)
                 }
             }
         }
@@ -391,6 +446,7 @@ struct PuzzleView: View {
         boardTop: CGFloat,
         trayTop: CGFloat, trayBottom: CGFloat, trayPieceScale: CGFloat,
         draggingPieceId: Binding<Int?>, dragOffset: Binding<CGSize>,
+        shakingPieceId: Binding<Int?>,
         placePiece: @escaping (Int, PuzzleSlot) -> Void, returnPieceToTray: @escaping (Int) -> Void
     ) -> some View {
         let slot = slots.first(where: { $0.index == piece.slotIndex })
@@ -439,12 +495,17 @@ struct PuzzleView: View {
                             placePiece(piece.id, hit)
                         } else {
                             AudioManager.shared.playWrong()
-                            returnPieceToTray(piece.id)
+                            shakingPieceId.wrappedValue = piece.id
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                                returnPieceToTray(piece.id)
+                                shakingPieceId.wrappedValue = nil
+                            }
                         }
                         dragOffset.wrappedValue = .zero
                         draggingPieceId.wrappedValue = nil
                     }
             )
+            .modifier(WrongShakeEffect(isActive: shakingPieceId.wrappedValue == piece.id))
     }
 
     private func placePiece(id: Int, at slot: PuzzleSlot) {
@@ -453,6 +514,12 @@ struct PuzzleView: View {
         updated[idx].isPlaced = true
         updated[idx].currentPosition = CGPoint(x: slot.frame.midX, y: slot.frame.midY)
         pieces = updated
+        lastPlacedPieceId = id
+        lastPlacedSlotIndex = slot.index
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+            lastPlacedPieceId = nil
+            lastPlacedSlotIndex = nil
+        }
     }
 
     /// 正解の枠にハマらなかったとき、下部トレイの初期位置に戻す（Yはトレイ内にクランプ）
