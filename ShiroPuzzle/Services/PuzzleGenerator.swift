@@ -28,6 +28,7 @@ enum PuzzleGenerator {
         switch n {
         case 4: scaleByCount = 1.45
         case 6: scaleByCount = 1.18
+        case 8: scaleByCount = 1.22  // 8ピース時は枠が小さくなりすぎないように
         default: scaleByCount = 1.0
         }
         let baseSize = baseDivisor * scaleByCount
