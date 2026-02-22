@@ -14,14 +14,19 @@ final class RecordAudioPlayer: NSObject, ObservableObject {
 
     private var player: AVAudioPlayer?
 
+    /// 録音再生時の音量（BGMより前に聞こえるように）
+    private let playbackVolume: Float = 2.0
+
     func play(url: URL, recordId: UUID) {
         stop()
         do {
             let p = try AVAudioPlayer(contentsOf: url)
             p.delegate = self
+            p.volume = playbackVolume
             player = p
             p.play()
             playingRecordId = recordId
+            AudioManager.shared.duckBGM()
         } catch {
             playingRecordId = nil
         }
@@ -31,6 +36,7 @@ final class RecordAudioPlayer: NSObject, ObservableObject {
         player?.stop()
         player = nil
         playingRecordId = nil
+        AudioManager.shared.restoreBGM()
     }
 }
 
@@ -39,6 +45,7 @@ extension RecordAudioPlayer: AVAudioPlayerDelegate {
         Task { @MainActor in
             self.player = nil
             self.playingRecordId = nil
+            AudioManager.shared.restoreBGM()
         }
     }
 }

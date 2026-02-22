@@ -40,8 +40,21 @@ final class AudioManager: NSObject, AVAudioPlayerDelegate {
 
     // MARK: - BGM
 
+    private static let normalBGMVolume: Float = 0.35
+    private static let duckedBGMVolume: Float = 0.12
+
     private var isSoundEnabled: Bool {
         UserDefaults.standard.object(forKey: "soundEnabled") as? Bool ?? true
+    }
+
+    /// 録音再生中など、BGMを一時的に小さくする
+    func duckBGM() {
+        bgmPlayer?.volume = Self.duckedBGMVolume
+    }
+
+    /// BGMの音量を元に戻す
+    func restoreBGM() {
+        bgmPlayer?.volume = Self.normalBGMVolume
     }
 
     /// 最初の画面用BGM（bgm_start.mp3 / .m4a）
@@ -69,7 +82,7 @@ final class AudioManager: NSObject, AVAudioPlayerDelegate {
         do {
             let player = try AVAudioPlayer(contentsOf: url)
             player.numberOfLoops = -1
-            player.volume = 0.35
+            player.volume = Self.normalBGMVolume
             player.prepareToPlay()
             player.play()
             bgmPlayer = player
