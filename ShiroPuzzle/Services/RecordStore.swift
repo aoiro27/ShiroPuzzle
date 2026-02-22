@@ -12,6 +12,11 @@ enum RecordStore {
     private static let keyPrefix = "clearRecords_"
     private static let recordingsFolderName = "Recordings"
 
+    /// 記録の表示・判定用に秒を小数第2位で丸める
+    static func roundedTime(_ seconds: TimeInterval) -> TimeInterval {
+        (seconds * 100).rounded() / 100
+    }
+
     private static func key(for pieceCount: PuzzlePieceCount) -> String {
         "\(keyPrefix)\(pieceCount.rawValue)"
     }
@@ -55,11 +60,11 @@ enum RecordStore {
         return decoded.sorted { $0.clearTimeSeconds < $1.clearTimeSeconds }
     }
 
-    /// 今回のクリア時間がTOP5に入るか（入る場合、何位か 1...5 を返す。入らない場合は nil）
+    /// 今回のクリア時間がTOP5に入るか（入る場合、何位か 1...5 を返す。入らない場合は nil）。小数第2位で比較。
     static func rankIfInTop5(clearTimeSeconds: TimeInterval, pieceCount: PuzzlePieceCount) -> Int? {
         let current = records(for: pieceCount)
-        // 今回より速い既存記録の数 + 1 が順位（同タイムは「抜かれる」ので +1 される）
-        let fasterCount = current.filter { $0.clearTimeSeconds < clearTimeSeconds }.count
+        let roundedNew = roundedTime(clearTimeSeconds)
+        let fasterCount = current.filter { roundedTime($0.clearTimeSeconds) < roundedNew }.count
         let rank = fasterCount + 1
         if current.count < maxRecordsPerPieceCount {
             return rank

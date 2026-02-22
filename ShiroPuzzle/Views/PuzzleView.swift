@@ -217,8 +217,9 @@ struct PuzzleView: View {
                 AudioManager.shared.playClear()
                 if let start = gameStartDate {
                     let elapsed = Date().timeIntervalSince(start)
-                    if let rank = RecordStore.rankIfInTop5(clearTimeSeconds: elapsed, pieceCount: pieceCount) {
-                        pendingClearTimeSeconds = elapsed
+                    let roundedElapsed = RecordStore.roundedTime(elapsed)
+                    if let rank = RecordStore.rankIfInTop5(clearTimeSeconds: roundedElapsed, pieceCount: pieceCount) {
+                        pendingClearTimeSeconds = roundedElapsed
                         pendingRecordRank = rank
                         showRecordNameSheet = true
                     }
@@ -335,7 +336,7 @@ struct PuzzleView: View {
 
             if layoutValid, let start = gameStartDate, !allPlaced {
                 VStack {
-                    TimelineView(.periodic(from: start, by: 1.0)) { context in
+                    TimelineView(.periodic(from: start, by: 0.1)) { context in
                         Text(formatElapsed(context.date.timeIntervalSince(start)))
                             .font(.system(size: 28, weight: .bold, design: .monospaced))
                             .foregroundStyle(.white)
@@ -356,8 +357,8 @@ struct PuzzleView: View {
 
     private func formatElapsed(_ seconds: TimeInterval) -> String {
         let m = Int(seconds) / 60
-        let s = Int(seconds) % 60
-        return String(format: "%d:%02d", m, s)
+        let s = seconds.truncatingRemainder(dividingBy: 60)
+        return String(format: "%d:%05.2f", m, s)
     }
 
     private func updateSlotsAndPieces(in rect: CGRect, geo: GeometryProxy, trayHeight: CGFloat, imageForPieces: UIImage, viewOffset: CGPoint, fillScale: CGFloat, onGameStarted: (() -> Void)? = nil) {

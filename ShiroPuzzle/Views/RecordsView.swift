@@ -23,8 +23,8 @@ struct RecordsView: View {
 
     private func formatTime(_ seconds: TimeInterval) -> String {
         let m = Int(seconds) / 60
-        let s = Int(seconds) % 60
-        return String(format: "%d:%02d", m, s)
+        let s = seconds.truncatingRemainder(dividingBy: 60)
+        return String(format: "%d:%05.2f", m, s)
     }
 
     var body: some View {
