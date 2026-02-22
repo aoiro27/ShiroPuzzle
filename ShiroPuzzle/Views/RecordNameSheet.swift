@@ -44,7 +44,7 @@ struct RecordNameSheet: View {
         case 5: rankText = "ご"
         default: rankText = "\(rank)"
         }
-        let text = "おめでとう！れきだい\(rankText)いだよ、きろくをのこそう"
+        let text = "おめでとう！\(rankText)ばんのきろくだよ！"
         let utterance = AVSpeechUtterance(string: text)
         utterance.voice = Self.bestJapaneseVoice()
         utterance.volume = 1.0
@@ -61,28 +61,44 @@ struct RecordNameSheet: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 24) {
-                Text("おめでとう！ 歴代\(rank)位だよ！")
-                    .font(.title2.bold())
+            VStack(spacing: 32) {
+                Text("おめでとう！ \(rank)ばんのきろくだよ！")
+                    .font(.system(size: 42, weight: .bold, design: .rounded))
                     .multilineTextAlignment(.center)
+                    .foregroundStyle(.primary)
                 Text("\(pieceCount.rawValue)ピースを \(formatTime(clearTimeSeconds)) でクリア")
-                    .font(.title3)
+                    .font(.system(size: 26, weight: .medium, design: .rounded))
                     .foregroundStyle(.secondary)
-                TextField("なまえをいれてね", text: $playerName)
-                    .textFieldStyle(.roundedBorder)
-                    .padding(.horizontal, 24)
-                    .padding(.top, 8)
 
-                VStack(spacing: 12) {
+                TextField("なまえをいれてね", text: $playerName)
+                    .font(.system(size: 28, weight: .medium, design: .rounded))
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 20)
+                    .background(
+                        RoundedRectangle(cornerRadius: 20)
+                            .fill(Color(.systemGray6))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 20)
+                                    .strokeBorder(Color.orange.opacity(0.6), lineWidth: 4)
+                            )
+                    )
+                    .padding(.horizontal, 24)
+
+                VStack(spacing: 20) {
                     if recordAudio.isRecording {
-                        HStack(spacing: 8) {
+                        HStack(spacing: 16) {
                             Image(systemName: "stop.circle.fill")
+                                .font(.system(size: 44))
                                 .foregroundStyle(.red)
                             Text("ろくおんちゅう…")
+                                .font(.system(size: 26, weight: .semibold, design: .rounded))
                                 .foregroundStyle(.secondary)
                             Button("とめる") {
                                 _ = recordAudio.stopRecording()
                             }
+                            .font(.system(size: 26, weight: .bold, design: .rounded))
+                            .padding(.horizontal, 32)
+                            .padding(.vertical, 20)
                             .buttonStyle(.borderedProminent)
                             .tint(.red)
                         }
@@ -94,23 +110,26 @@ struct RecordNameSheet: View {
                                 }
                             }
                         } label: {
-                            Label(recordAudio.recordedURL != nil ? "もういちどろくおん" : "しょうしゃのこえをのこす", systemImage: "mic.fill")
+                            Label(recordAudio.recordedURL != nil ? "もういちどろくおん" : "こえをのこす", systemImage: "mic.fill")
+                                .font(.system(size: 28, weight: .bold, design: .rounded))
+                                .padding(.horizontal, 36)
+                                .padding(.vertical, 24)
                         }
                         .buttonStyle(.bordered)
                         if recordAudio.recordedURL != nil {
                             Text("こえがのこされています")
-                                .font(.caption)
+                                .font(.system(size: 22, weight: .semibold, design: .rounded))
                                 .foregroundStyle(.green)
                         }
                     }
                 }
-                .padding(.vertical, 16)
+                .padding(.vertical, 24)
 
                 Spacer()
             }
-            .padding(.top, 32)
+            .padding(.top, 40)
             .navigationTitle("きろくをのこす")
-            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("スキップ") {
@@ -118,6 +137,7 @@ struct RecordNameSheet: View {
                         dismiss()
                         onSave()
                     }
+                    .font(.system(size: 22, weight: .semibold, design: .rounded))
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("のこす") {
@@ -141,6 +161,7 @@ struct RecordNameSheet: View {
                         dismiss()
                         onSave()
                     }
+                    .font(.system(size: 22, weight: .bold, design: .rounded))
                 }
             }
             .onAppear {
