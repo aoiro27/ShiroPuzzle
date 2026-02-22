@@ -597,7 +597,7 @@ struct PuzzleView: View {
                 Image(systemName: "star.circle.fill")
                     .font(.system(size: 80))
                     .foregroundStyle(.yellow)
-                Text("できたね！")
+                Text("おめでとう！くりあだよ！")
                     .font(.system(size: 36, weight: .bold))
                     .foregroundStyle(.white)
                 Button("もういちど") {
