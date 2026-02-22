@@ -12,6 +12,7 @@ struct ContentView: View {
     @State private var selectedImage: UIImage?
     @State private var showPhotoPicker = false
     @State private var showCamera = false
+    @State private var showRecords = false
     /// ピース数（Int で保持して Picker の binding を確実にする）
     @State private var selectedPieceCountRaw: Int = 6
 
@@ -38,6 +39,9 @@ struct ContentView: View {
         .fullScreenCover(isPresented: $showCamera) {
             CameraPicker(image: $selectedImage)
                 .ignoresSafeArea()
+        }
+        .sheet(isPresented: $showRecords) {
+            RecordsView()
         }
     }
 
@@ -132,6 +136,17 @@ struct ContentView: View {
                                 .background(Color.orange.opacity(0.85).gradient, in: RoundedRectangle(cornerRadius: 20))
                                 .foregroundStyle(.white)
                         }
+                    }
+
+                    Button {
+                        showRecords = true
+                    } label: {
+                        Label("きろくをみる", systemImage: "trophy.fill")
+                            .font(.system(size: 28, weight: .semibold))
+                            .padding(.horizontal, 36)
+                            .padding(.vertical, 28)
+                            .background(Color.orange.gradient, in: RoundedRectangle(cornerRadius: 20))
+                            .foregroundStyle(.white)
                     }
 
                     Toggle(isOn: $soundEnabled) {

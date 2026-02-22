@@ -140,6 +140,14 @@ struct PuzzleView: View {
     @State private var lastPlacedSlotIndex: Int?
     /// 不正解時「首振り」用（戻す直前のピースID）
     @State private var shakingPieceId: Int?
+    /// クリア時間計測用：ゲーム開始時刻（ピース生成完了時にセット）
+    @State private var gameStartDate: Date?
+    /// TOP5入りしたときの記録用：名前入力シート表示
+    @State private var showRecordNameSheet = false
+    /// 記録保存するクリア時間（秒）
+    @State private var pendingClearTimeSeconds: TimeInterval = 0
+    /// 記録の順位（1〜5）
+    @State private var pendingRecordRank: Int = 0
 
     private let slotInset: CGFloat = 12
     private let snapThreshold: CGFloat = 50
@@ -207,12 +215,28 @@ struct PuzzleView: View {
             if allPlaced {
                 showCelebration = true
                 AudioManager.shared.playClear()
+                if let start = gameStartDate {
+                    let elapsed = Date().timeIntervalSince(start)
+                    if let rank = RecordStore.rankIfInTop5(clearTimeSeconds: elapsed, pieceCount: pieceCount) {
+                        pendingClearTimeSeconds = elapsed
+                        pendingRecordRank = rank
+                        showRecordNameSheet = true
+                    }
+                }
             }
         }
         .overlay {
             if showCelebration {
                 celebrationOverlay
             }
+        }
+        .sheet(isPresented: $showRecordNameSheet) {
+            RecordNameSheet(
+                clearTimeSeconds: pendingClearTimeSeconds,
+                rank: pendingRecordRank,
+                pieceCount: pieceCount,
+                onSave: { showRecordNameSheet = false }
+            )
         }
         .onAppear {
             AudioManager.shared.playBGMGame()
@@ -264,12 +288,12 @@ struct PuzzleView: View {
                                 Task { @MainActor in
                                     try? await Task.sleep(nanoseconds: 150_000_000)
                                     if let ctx = lastLayoutContext {
-                                        updateSlotsAndPieces(context: ctx, imageForPieces: displayImage ?? image)
+                                        updateSlotsAndPieces(context: ctx, imageForPieces: displayImage ?? image, onGameStarted: { gameStartDate = Date() })
                                     }
                                     hasCompletedInitialLayout = true
                                 }
                             } else {
-                                updateSlotsAndPieces(in: boardAreaRect, geo: geo, trayHeight: trayH, imageForPieces: displayImage ?? image, viewOffset: viewOffset, fillScale: fillScale)
+                                updateSlotsAndPieces(in: boardAreaRect, geo: geo, trayHeight: trayH, imageForPieces: displayImage ?? image, viewOffset: viewOffset, fillScale: fillScale, onGameStarted: { gameStartDate = Date() })
                             }
                         }
                     ForEach(pieces.filter(\.isPlaced)) { piece in
@@ -308,16 +332,39 @@ struct PuzzleView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
+
+            if layoutValid, let start = gameStartDate, !allPlaced {
+                VStack {
+                    TimelineView(.periodic(from: start, by: 1.0)) { context in
+                        Text(formatElapsed(context.date.timeIntervalSince(start)))
+                            .font(.system(size: 28, weight: .bold, design: .monospaced))
+                            .foregroundStyle(.white)
+                            .shadow(color: .black.opacity(0.8), radius: 2, x: 0, y: 1)
+                            .padding(.horizontal, 20)
+                            .padding(.vertical, 10)
+                            .background(Capsule().fill(.black.opacity(0.5)))
+                    }
+                    Spacer()
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .allowsHitTesting(false)
+            }
         }
         .preference(key: TrayBoundsKey.self, value: layoutValid ? TrayBounds(top: trayTop, bottom: trayBottom) : nil)
         .preference(key: LayoutContextKey.self, value: layoutValid ? LayoutContext(rect: boardAreaRect, viewOffset: viewOffset, fillScale: fillScale, fullW: fullW, fullH: fullH, safeBottom: safe.bottom, trayHeight: trayH) : nil)
     }
 
-    private func updateSlotsAndPieces(in rect: CGRect, geo: GeometryProxy, trayHeight: CGFloat, imageForPieces: UIImage, viewOffset: CGPoint, fillScale: CGFloat) {
-        applySlotsAndPieces(rect: rect, viewOffset: viewOffset, fillScale: fillScale, fullW: geo.size.width, fullH: geo.size.height, safeBottom: geo.safeAreaInsets.bottom, trayHeight: trayHeight, imageForPieces: imageForPieces)
+    private func formatElapsed(_ seconds: TimeInterval) -> String {
+        let m = Int(seconds) / 60
+        let s = Int(seconds) % 60
+        return String(format: "%d:%02d", m, s)
     }
 
-    private func applySlotsAndPieces(rect: CGRect, viewOffset: CGPoint, fillScale: CGFloat, fullW: CGFloat, fullH: CGFloat, safeBottom: CGFloat, trayHeight: CGFloat, imageForPieces: UIImage) {
+    private func updateSlotsAndPieces(in rect: CGRect, geo: GeometryProxy, trayHeight: CGFloat, imageForPieces: UIImage, viewOffset: CGPoint, fillScale: CGFloat, onGameStarted: (() -> Void)? = nil) {
+        applySlotsAndPieces(rect: rect, viewOffset: viewOffset, fillScale: fillScale, fullW: geo.size.width, fullH: geo.size.height, safeBottom: geo.safeAreaInsets.bottom, trayHeight: trayHeight, imageForPieces: imageForPieces, onGameStarted: onGameStarted)
+    }
+
+    private func applySlotsAndPieces(rect: CGRect, viewOffset: CGPoint, fillScale: CGFloat, fullW: CGFloat, fullH: CGFloat, safeBottom: CGFloat, trayHeight: CGFloat, imageForPieces: UIImage, onGameStarted: (() -> Void)? = nil) {
         guard rect.width >= minBoardSize, rect.height >= minBoardSize,
               rect.width.isFinite, rect.height.isFinite else { return }
         let expectedCount = pieceCount.rawValue
@@ -367,12 +414,13 @@ struct PuzzleView: View {
             initialPiecePositions = positions
             let shapeKinds = newSlots.map(\.shapeKind)
             pieces = PuzzleGenerator.makePieces(pieceImages: images, initialPositions: positions, shapeKinds: shapeKinds)
+            onGameStarted?()
         }
     }
 
     /// 初回用：Preference で確定したレイアウトを使って枠・ピース生成（ずれ防止）
-    private func updateSlotsAndPieces(context ctx: LayoutContext, imageForPieces: UIImage) {
-        applySlotsAndPieces(rect: ctx.rect, viewOffset: ctx.viewOffset, fillScale: ctx.fillScale, fullW: ctx.fullW, fullH: ctx.fullH, safeBottom: ctx.safeBottom, trayHeight: ctx.trayHeight, imageForPieces: imageForPieces)
+    private func updateSlotsAndPieces(context ctx: LayoutContext, imageForPieces: UIImage, onGameStarted: (() -> Void)? = nil) {
+        applySlotsAndPieces(rect: ctx.rect, viewOffset: ctx.viewOffset, fillScale: ctx.fillScale, fullW: ctx.fullW, fullH: ctx.fullH, safeBottom: ctx.safeBottom, trayHeight: ctx.trayHeight, imageForPieces: imageForPieces, onGameStarted: onGameStarted)
     }
 
     /// 下部のピース置き場の背景（グレー帯・画面最下部まで隙間なく）
@@ -557,6 +605,7 @@ struct PuzzleView: View {
                     allPlaced = false
                     slots = []
                     pieces = []
+                    gameStartDate = nil
                     regenerateCount += 1
                     AudioManager.shared.playBGMGame()
                 }
