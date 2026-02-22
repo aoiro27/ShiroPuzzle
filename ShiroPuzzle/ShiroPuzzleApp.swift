@@ -14,7 +14,22 @@ import SwiftUI
 struct ShiroPuzzleApp: App {
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            RootView()
+        }
+    }
+}
+
+// 起動時: オープニング動画 → メイン画面
+private struct RootView: View {
+    @State private var showOpening = true
+
+    var body: some View {
+        Group {
+            if showOpening {
+                OpeningVideoView(onFinish: { showOpening = false })
+            } else {
+                ContentView()
+            }
         }
     }
 }
