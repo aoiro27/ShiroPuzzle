@@ -2,7 +2,7 @@
 //  RecordsView.swift
 //  ShiroPuzzle
 //
-//  ピース数ごとの歴代TOP5と達成日を表示
+//  ピース数ごとの歴代TOP5と達成日を表示（録音ありは再生可能）
 //
 
 import SwiftUI
@@ -11,6 +11,7 @@ struct RecordsView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var refreshId = 0
     @State private var showResetConfirmation = false
+    @StateObject private var audioPlayer = RecordAudioPlayer()
 
     private var dateFormatter: DateFormatter {
         let f = DateFormatter()
@@ -49,6 +50,20 @@ struct RecordsView: View {
                                             .foregroundStyle(.secondary)
                                     }
                                     Spacer()
+                                    if let url = RecordStore.recordAudioURL(for: record) {
+                                        Button {
+                                            if audioPlayer.playingRecordId == record.id {
+                                                audioPlayer.stop()
+                                            } else {
+                                                audioPlayer.play(url: url, recordId: record.id)
+                                            }
+                                        } label: {
+                                            Image(systemName: audioPlayer.playingRecordId == record.id ? "stop.circle.fill" : "play.circle.fill")
+                                                .font(.title2)
+                                                .foregroundStyle(.orange)
+                                        }
+                                        .buttonStyle(.plain)
+                                    }
                                     Text(formatTime(record.clearTimeSeconds))
                                         .font(.system(.body, design: .monospaced))
                                         .foregroundStyle(.orange)
