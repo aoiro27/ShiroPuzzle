@@ -8,7 +8,7 @@
 import SwiftUI
 import CoreGraphics
 
-private let allShapeKinds: [SlotShapeKind] = [.rectangle, .roundedRect, .circle, .ellipse, .triangle]
+private let allShapeKinds: [SlotShapeKind] = [.rectangle, .roundedRect, .circle, .ellipse, .triangle, .star]
 
 enum PuzzleGenerator {
     /// 枠をランダムな位置・ランダムな形で配置する
@@ -64,7 +64,7 @@ enum PuzzleGenerator {
             let w: CGFloat
             let h: CGFloat
             switch kind {
-            case .circle:
+            case .circle, .star:
                 let s = CGFloat.random(in: slotMinW...slotMaxW)
                 w = min(s, slotMaxH); h = min(s, slotMaxH)
             case .ellipse:
@@ -95,7 +95,7 @@ enum PuzzleGenerator {
             let w: CGFloat
             let h: CGFloat
             switch kind {
-            case .circle:
+            case .circle, .star:
                 let s = CGFloat.random(in: minSize...maxSize)
                 w = s; h = s
             case .ellipse:
@@ -121,7 +121,7 @@ enum PuzzleGenerator {
             fallbackAttempt += 1
             let kind = allShapeKinds.randomElement()!
             let w = CGFloat.random(in: minSize...maxSize)
-            let h = (kind == .circle) ? w : CGFloat.random(in: minSize...maxSize)
+            let h = (kind == .circle || kind == .star) ? w : CGFloat.random(in: minSize...maxSize)
             let x = usable.minX + CGFloat.random(in: 0...max(0, usable.width - w))
             let y = usable.minY + CGFloat.random(in: 0...max(0, usable.height - h))
             let frame = CGRect(x: x, y: y, width: w, height: h)
@@ -133,7 +133,7 @@ enum PuzzleGenerator {
         while slots.count < n {
             let kind = allShapeKinds.randomElement()!
             let w = CGFloat.random(in: minSize...maxSize)
-            let h = (kind == .circle) ? w : CGFloat.random(in: minSize...maxSize)
+            let h = (kind == .circle || kind == .star) ? w : CGFloat.random(in: minSize...maxSize)
             let x = usable.minX + CGFloat.random(in: 0...max(0, usable.width - w))
             let y = usable.minY + CGFloat.random(in: 0...max(0, usable.height - h))
             let frame = CGRect(x: x, y: y, width: w, height: h)

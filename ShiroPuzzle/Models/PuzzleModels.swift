@@ -34,6 +34,7 @@ enum SlotShapeKind: Equatable {
     case circle
     case ellipse
     case triangle
+    case star
 }
 
 /// 背景にある「はめる穴」のスロット（ランダム位置・ランダム形）
@@ -77,7 +78,32 @@ struct PuzzlePieceShape: Shape {
             return Path(ellipseIn: rect)
         case .triangle:
             return pathRoundedEquilateralTriangle(in: rect)
+        case .star:
+            return pathStar(in: rect)
         }
+    }
+
+    /// 5角形の星型（rect内に収める）
+    private func pathStar(in rect: CGRect) -> Path {
+        let cx = rect.midX
+        let cy = rect.midY
+        let R = min(rect.width, rect.height) / 2
+        let r = R * 0.42  // 内側の頂点の半径
+        let points = 5
+        var path = Path()
+        for i in 0..<(points * 2) {
+            let angle = -.pi / 2 + CGFloat(i) * .pi / CGFloat(points)
+            let radius = i.isMultiple(of: 2) ? R : r
+            let x = cx + radius * cos(angle)
+            let y = cy + radius * sin(angle)
+            if i == 0 {
+                path.move(to: CGPoint(x: x, y: y))
+            } else {
+                path.addLine(to: CGPoint(x: x, y: y))
+            }
+        }
+        path.closeSubpath()
+        return path
     }
 
     /// 正三角形に近い形で角を丸めた三角形（上向き）
