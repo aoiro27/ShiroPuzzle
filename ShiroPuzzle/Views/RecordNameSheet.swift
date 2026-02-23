@@ -51,7 +51,7 @@ struct RecordNameSheet: View {
         let text = "おめでとう！\(rankText)ばんのきろくだよ！"
         let utterance = AVSpeechUtterance(string: text)
         utterance.voice = Self.bestJapaneseVoice()
-        utterance.volume = 1.0
+        utterance.volume = 1.0  // 0.0〜1.0 が範囲で、1.0 が最大（API上限）
         utterance.rate = AVSpeechUtteranceDefaultSpeechRate * 0.85
         utterance.pitchMultiplier = 1.1
         synth.speak(utterance)
@@ -63,7 +63,7 @@ struct RecordNameSheet: View {
         speechSynthesizer = synth
         let utterance = AVSpeechUtterance(string: "しょうりのこえをのこしておこう、いくよ〜")
         utterance.voice = Self.bestJapaneseVoice()
-        utterance.volume = 1.0
+        utterance.volume = 1.0  // 0.0〜1.0 が範囲で、1.0 が最大（API上限）
         utterance.rate = AVSpeechUtteranceDefaultSpeechRate * 0.85
         utterance.pitchMultiplier = 1.1
         synth.speak(utterance)
