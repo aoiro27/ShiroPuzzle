@@ -17,7 +17,9 @@ struct RecordNameSheet: View {
     @State private var step: Int = 1
     @State private var playerName: String = ""
     @StateObject private var recordAudio = RecordAudioService()
-    @State private var speechSynthesizer: AVSpeechSynthesizer?
+    @State private var congratsPlayer: AVAudioPlayer?
+    @State private var recordingIntroPlayer: AVAudioPlayer?
+    @State private var nameIntroPlayer: AVAudioPlayer?
     @Environment(\.dismiss) private var dismiss
 
     // ステップ2: 録音フロー
@@ -36,37 +38,74 @@ struct RecordNameSheet: View {
         return jaVoices.first ?? AVSpeechSynthesisVoice(language: "ja-JP")
     }
 
-    private func speakCongratulations() {
-        let synth = AVSpeechSynthesizer()
-        speechSynthesizer = synth
-        let rankText: String
-        switch rank {
-        case 1: rankText = "いち"
-        case 2: rankText = "に"
-        case 3: rankText = "さん"
-        case 4: rankText = "よん"
-        case 5: rankText = "ご"
-        default: rankText = "\(rank)"
-        }
-        let text = "おめでとう！\(rankText)ばんのきろくだよ！"
-        let utterance = AVSpeechUtterance(string: text)
-        utterance.voice = Self.bestJapaneseVoice()
-        utterance.volume = 1.0  // 0.0〜1.0 が範囲で、1.0 が最大（API上限）
-        utterance.rate = AVSpeechUtteranceDefaultSpeechRate * 0.85
-        utterance.pitchMultiplier = 1.1
-        synth.speak(utterance)
+    private var isSoundEnabled: Bool {
+        UserDefaults.standard.object(forKey: "soundEnabled") as? Bool ?? true
     }
 
-    /// 録音画面で「しょうりのこえをのこしておこう、いくよ〜」を読み上げ
-    private func speakRecordingIntro() {
-        let synth = AVSpeechSynthesizer()
-        speechSynthesizer = synth
-        let utterance = AVSpeechUtterance(string: "しょうりのこえをのこしておこう、いくよ〜")
-        utterance.voice = Self.bestJapaneseVoice()
-        utterance.volume = 1.0  // 0.0〜1.0 が範囲で、1.0 が最大（API上限）
-        utterance.rate = AVSpeechUtteranceDefaultSpeechRate * 0.85
-        utterance.pitchMultiplier = 1.1
-        synth.speak(utterance)
+    /// 記録達成時のおめでとうボイス再生（1〜5位に対応）
+    private func playCongratulationsVoice() {
+        guard isSoundEnabled else { return }
+        let fileName: String
+        switch rank {
+        case 1: fileName = "1"
+        case 2: fileName = "2"
+        case 3: fileName = "3"
+        case 4: fileName = "4"
+        case 5: fileName = "5"
+        default: return
+        }
+        guard let url = Bundle.main.url(forResource: fileName, withExtension: "wav") else {
+            return
+        }
+        do {
+            let player = try AVAudioPlayer(contentsOf: url)
+            player.volume = 1.0
+            player.prepareToPlay()
+            player.play()
+            congratsPlayer = player
+            let delay = player.duration + 0.3
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+                playNameIntroVoice()
+            }
+        } catch {
+            congratsPlayer = nil
+        }
+    }
+
+    /// 「なまえをいれてね」を促す name.wav を再生
+    private func playNameIntroVoice() {
+        guard isSoundEnabled else { return }
+        guard let url = Bundle.main.url(forResource: "name", withExtension: "wav") else {
+            return
+        }
+        do {
+            let player = try AVAudioPlayer(contentsOf: url)
+            player.volume = 1.0
+            player.prepareToPlay()
+            player.play()
+            nameIntroPlayer = player
+        } catch {
+            nameIntroPlayer = nil
+        }
+    }
+
+    /// 録音画面で「しょうりのこえをのこしておこう、いくよ〜」の音声（record.wav）を再生
+    private func playRecordingIntroVoice() -> TimeInterval {
+        guard isSoundEnabled else { return 0 }
+        guard let url = Bundle.main.url(forResource: "record", withExtension: "wav") else {
+            return 0
+        }
+        do {
+            let player = try AVAudioPlayer(contentsOf: url)
+            player.volume = 1.0
+            player.prepareToPlay()
+            player.play()
+            recordingIntroPlayer = player
+            return player.duration
+        } catch {
+            recordingIntroPlayer = nil
+            return 0
+        }
     }
 
     private func formatTime(_ seconds: TimeInterval) -> String {
@@ -90,8 +129,10 @@ struct RecordNameSheet: View {
                 micDenied = true
                 return
             }
-            speakRecordingIntro()
-            try? await Task.sleep(nanoseconds: 3_500_000_000)
+            let introDuration = playRecordingIntroVoice()
+            let waitSeconds: TimeInterval = introDuration > 0 ? introDuration + 0.3 : 3.5
+            let nanos = UInt64(waitSeconds * 1_000_000_000)
+            try? await Task.sleep(nanoseconds: nanos)
             if Task.isCancelled { return }
             for label in ["3", "2", "1", "スタート"] {
                 countdownLabel = label
@@ -176,7 +217,9 @@ struct RecordNameSheet: View {
             }
             .onAppear {
                 if step == 1 {
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { speakCongratulations() }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                        playCongratulationsVoice()
+                    }
                 }
             }
         }
