@@ -11,6 +11,7 @@ struct RecordsView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var refreshId = 0
     @State private var showResetConfirmation = false
+    @State private var showResetSecondConfirmation = false
     @StateObject private var audioPlayer = RecordAudioPlayer()
 
     private var dateFormatter: DateFormatter {
@@ -91,14 +92,18 @@ struct RecordsView: View {
                     }
                 }
             }
-            .confirmationDialog("きろくをリセット", isPresented: $showResetConfirmation, titleVisibility: .visible) {
-                Button("すべてけす", role: .destructive) {
+            .alert("本当にけす？", isPresented: $showResetConfirmation) {
+                Button("やっぱり消さない", role: .cancel) {}
+                Button("はい") {
+                    showResetSecondConfirmation = true
+                }
+            }
+            .alert("やっぱり消さない？", isPresented: $showResetSecondConfirmation) {
+                Button("けさない", role: .cancel) {}
+                Button("けす", role: .destructive) {
                     RecordStore.resetAllRecords()
                     refreshId += 1
                 }
-                Button("キャンセル", role: .cancel) {}
-            } message: {
-                Text("すべてのきろくをけしてもよいですか？")
             }
         }
     }

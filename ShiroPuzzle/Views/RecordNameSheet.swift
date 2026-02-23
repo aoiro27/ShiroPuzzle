@@ -2,7 +2,7 @@
 //  RecordNameSheet.swift
 //  ShiroPuzzle
 //
-//  TOP5入り：ステップ1＝名前、ステップ2＝3・2・1・スタート→10秒録音
+//  TOP5入り：ステップ1＝名前、ステップ2＝音声「いくよ〜」→3・2・1・スタート→5秒録音
 //
 
 import AVFoundation
@@ -22,7 +22,7 @@ struct RecordNameSheet: View {
 
     // ステップ2: 録音フロー
     @State private var countdownLabel: String? = nil       // "3", "2", "1", "スタート"
-    @State private var recordingRemaining: Int? = nil     // 10〜0
+    @State private var recordingRemaining: Int? = nil     // 5〜0
     @State private var recordingDone: Bool = false
     @State private var micDenied: Bool = false
     @State private var recordingTask: Task<Void, Never>?
@@ -57,6 +57,18 @@ struct RecordNameSheet: View {
         synth.speak(utterance)
     }
 
+    /// 録音画面で「しょうりのこえをのこしておこう、いくよ〜」を読み上げ
+    private func speakRecordingIntro() {
+        let synth = AVSpeechSynthesizer()
+        speechSynthesizer = synth
+        let utterance = AVSpeechUtterance(string: "しょうりのこえをのこしておこう、いくよ〜")
+        utterance.voice = Self.bestJapaneseVoice()
+        utterance.volume = 1.0
+        utterance.rate = AVSpeechUtteranceDefaultSpeechRate * 0.85
+        utterance.pitchMultiplier = 1.1
+        synth.speak(utterance)
+    }
+
     private func formatTime(_ seconds: TimeInterval) -> String {
         let m = Int(seconds) / 60
         let s = seconds.truncatingRemainder(dividingBy: 60)
@@ -78,6 +90,9 @@ struct RecordNameSheet: View {
                 micDenied = true
                 return
             }
+            speakRecordingIntro()
+            try? await Task.sleep(nanoseconds: 3_500_000_000)
+            if Task.isCancelled { return }
             for label in ["3", "2", "1", "スタート"] {
                 countdownLabel = label
                 try? await Task.sleep(nanoseconds: 1_000_000_000)
